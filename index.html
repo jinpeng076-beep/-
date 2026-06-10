@@ -104,6 +104,23 @@
   .vehicle-pill[data-active="true"] { background: #f97316; color: #0a0a0a; border-color: #f97316; }
   .month-cell[data-active="true"] { background: #f97316; color: #0a0a0a; border-color: #f97316; }
 
+  /* 途径点 */
+  .wp-type[data-active="true"][data-wp-type="must"] { background: #f97316; color: #0a0a0a; }
+  .wp-type[data-active="true"][data-wp-type="pass"] { background: #c8b48a; color: #0a0a0a; }
+  .wp-type[data-active="true"][data-wp-type="avoid"] { background: #ef4444; color: #0a0a0a; }
+  .wp-row[data-type="must"] { border-left: 2px solid #f97316; }
+  .wp-row[data-type="pass"] { border-left: 2px solid #c8b48a; }
+  .wp-row[data-type="avoid"] { border-left: 2px solid #ef4444; }
+
+  /* 沿途推荐景点卡片 */
+  .poi-card[data-state="add"] { border-color: #f97316; box-shadow: 0 0 0 1px #f97316; }
+  .poi-card[data-state="add"] .poi-state { color: #f97316; border-color: #f97316; }
+  .poi-card[data-state="avoid"] { opacity: 0.45; }
+  .poi-card[data-state="avoid"] .poi-state { color: #ef4444; border-color: #ef4444; }
+  .poi-card[data-state="avoid"] .poi-img { filter: grayscale(1); }
+  .poi-card[data-state="add"] .btn-add { background: #f97316; color: #0a0a0a; border-color: #f97316; }
+  .poi-card[data-state="avoid"] .btn-avoid { background: #ef4444; color: #0a0a0a; border-color: #ef4444; }
+
   /* screen 切换 */
   .screen { display: none; }
   .screen.active { display: block; }
@@ -217,24 +234,34 @@
           <span class="ct-tl"></span><span class="ct-tr"></span><span class="ct-bl"></span><span class="ct-br"></span>
           <div class="text-[10px] mono text-rust mb-4 tracking-[0.3em]">▸ TRIP PARAMETERS</div>
 
-          <div class="grid grid-cols-2 gap-4 mb-4">
-            <div>
-              <label class="text-[10px] mono text-ash block mb-1.5 tracking-widest">起点 / FROM</label>
-              <input value="成都 · 武侯祠" class="w-full bg-ink border border-line px-3 py-2.5 text-snow text-sm focus:border-rust focus:outline-none" />
-            </div>
-            <div>
-              <label class="text-[10px] mono text-ash block mb-1.5 tracking-widest">终点 / TO</label>
-              <input value="四姑娘山 · 长坪沟" class="w-full bg-ink border border-line px-3 py-2.5 text-snow text-sm focus:border-rust focus:outline-none" />
-            </div>
+          <!-- 起点 -->
+          <div class="mb-3">
+            <label class="text-[10px] mono text-ash block mb-1.5 tracking-widest">起点 / FROM</label>
+            <input value="成都 · 武侯祠" class="w-full bg-ink border border-line px-3 py-2.5 text-snow text-sm focus:border-rust focus:outline-none" />
+          </div>
+
+          <!-- 途径点列表（动态插入） -->
+          <div id="waypoints-list" class="mb-3 space-y-2"></div>
+
+          <!-- + 添加途径点 -->
+          <button id="wp-add" class="w-full mb-3 py-2 border border-dashed border-line text-ash hover:border-rust hover:text-rust text-[10px] head tracking-[0.2em] transition disabled:opacity-50 disabled:cursor-not-allowed">+ ADD WAYPOINT · 0 / 5</button>
+
+          <!-- 终点 -->
+          <div>
+            <label class="text-[10px] mono text-ash block mb-1.5 tracking-widest">终点 / TO</label>
+            <input value="四姑娘山 · 长坪沟" class="w-full bg-ink border border-line px-3 py-2.5 text-snow text-sm focus:border-rust focus:outline-none" />
           </div>
 
           <div class="grid grid-cols-2 gap-4 mb-4">
             <div>
               <label class="text-[10px] mono text-ash block mb-1.5 tracking-widest">天数 / DAYS</label>
-              <div class="flex items-center bg-ink border border-line">
-                <button class="px-3 py-2.5 text-rust hover:bg-rust hover:text-ink">−</button>
-                <input type="text" value="8" class="flex-1 bg-transparent text-center text-snow text-lg mono num-wide focus:outline-none" />
-                <button class="px-3 py-2.5 text-rust hover:bg-rust hover:text-ink">+</button>
+              <div class="flex items-stretch bg-ink border border-line">
+                <button class="px-3 text-rust hover:bg-rust hover:text-ink text-lg mono transition">−</button>
+                <input type="text" value="8" class="flex-1 bg-transparent text-center text-snow text-2xl mono num-wide focus:outline-none" />
+                <button class="px-4 bg-rust text-ink hover:bg-warn transition flex items-center gap-1.5 group">
+                  <span class="text-2xl mono leading-none">+</span>
+                  <span class="head text-[10px] tracking-[0.2em] leading-none">DAY</span>
+                </button>
               </div>
             </div>
             <div>
@@ -309,19 +336,7 @@
       <!-- 路线卡 1 川西 -->
       <div class="corner-target border border-line bg-card overflow-hidden group cursor-pointer hover:border-rust transition" data-go="plan">
         <span class="ct-tl"></span><span class="ct-tr"></span><span class="ct-bl"></span><span class="ct-br"></span>
-        <div class="aspect-[4/3] bg-gradient-to-br from-khaki/30 via-surface to-ink relative overflow-hidden">
-          <svg viewBox="0 0 200 150" class="absolute inset-0 w-full h-full">
-            <g fill="none" stroke="#c8b48a" stroke-width="0.4" opacity="0.5">
-              <path d="M0,40 Q50,30 100,40 T200,40"/>
-              <path d="M0,55 Q50,45 100,55 T200,55"/>
-              <path d="M0,75 Q50,65 100,75 T200,75"/>
-              <path d="M0,100 Q50,90 100,100 T200,100"/>
-              <path d="M0,125 Q50,115 100,125 T200,125"/>
-            </g>
-            <polyline points="20,130 50,90 80,70 110,50 140,40 170,55 185,80" fill="none" stroke="#f97316" stroke-width="1.5" />
-            <circle cx="80" cy="70" r="2" fill="#f97316"/>
-            <circle cx="140" cy="40" r="2" fill="#f97316"/>
-          </svg>
+        <div class="aspect-[4/3] relative overflow-hidden" style="background-image: linear-gradient(rgba(10,10,10,0.4), rgba(10,10,10,0.5)), url('https://loremflickr.com/1200/800/sichuan,mountain,monastery?lock=1'); background-size: cover; background-position: center;">
           <div class="absolute top-2 left-2 bg-ink/80 border border-rust text-rust text-[9px] mono px-1.5 py-0.5">● ACTIVE</div>
         </div>
         <div class="p-4">
@@ -338,15 +353,7 @@
       <!-- 路线卡 2 G219 -->
       <div class="corner-target border border-line bg-card overflow-hidden group cursor-pointer hover:border-rust transition">
         <span class="ct-tl"></span><span class="ct-tr"></span><span class="ct-bl"></span><span class="ct-br"></span>
-        <div class="aspect-[4/3] bg-gradient-to-br from-warn/20 via-surface to-ink relative overflow-hidden">
-          <svg viewBox="0 0 200 150" class="absolute inset-0 w-full h-full">
-            <g fill="none" stroke="#c8b48a" stroke-width="0.4" opacity="0.5">
-              <path d="M0,50 Q50,30 100,40 T200,30"/>
-              <path d="M0,80 Q50,60 100,70 T200,60"/>
-              <path d="M0,110 Q50,90 100,100 T200,90"/>
-            </g>
-            <polyline points="20,120 40,100 70,85 100,75 130,60 160,45 185,30" fill="none" stroke="#f97316" stroke-width="1.5" />
-          </svg>
+        <div class="aspect-[4/3] relative overflow-hidden" style="background-image: linear-gradient(rgba(10,10,10,0.4), rgba(10,10,10,0.5)), url('https://loremflickr.com/1200/800/himalayas,road,mountain?lock=2'); background-size: cover; background-position: center;">
           <div class="absolute top-2 left-2 bg-ink/80 border border-warn text-warn text-[9px] mono px-1.5 py-0.5">HARD</div>
         </div>
         <div class="p-4">
@@ -363,14 +370,7 @@
       <!-- 路线卡 3 独库 -->
       <div class="corner-target border border-line bg-card overflow-hidden group cursor-pointer hover:border-rust transition">
         <span class="ct-tl"></span><span class="ct-tr"></span><span class="ct-bl"></span><span class="ct-br"></span>
-        <div class="aspect-[4/3] bg-gradient-to-br from-topo/20 via-surface to-ink relative overflow-hidden">
-          <svg viewBox="0 0 200 150" class="absolute inset-0 w-full h-full">
-            <g fill="none" stroke="#c8b48a" stroke-width="0.4" opacity="0.5">
-              <path d="M0,60 Q60,40 120,60 T200,60"/>
-              <path d="M0,90 Q60,70 120,90 T200,90"/>
-            </g>
-            <polyline points="20,110 60,80 100,65 140,55 180,45" fill="none" stroke="#f97316" stroke-width="1.5" />
-          </svg>
+        <div class="aspect-[4/3] relative overflow-hidden" style="background-image: linear-gradient(rgba(10,10,10,0.4), rgba(10,10,10,0.5)), url('https://loremflickr.com/1200/800/snow,mountain,pass?lock=3'); background-size: cover; background-position: center;">
           <div class="absolute top-2 left-2 bg-ink/80 border border-topo text-topo text-[9px] mono px-1.5 py-0.5">SCENIC</div>
         </div>
         <div class="p-4">
@@ -387,14 +387,7 @@
       <!-- 路线卡 4 坝上 -->
       <div class="corner-target border border-line bg-card overflow-hidden group cursor-pointer hover:border-rust transition">
         <span class="ct-tl"></span><span class="ct-tr"></span><span class="ct-bl"></span><span class="ct-br"></span>
-        <div class="aspect-[4/3] bg-gradient-to-br from-khaki/20 via-surface to-ink relative overflow-hidden">
-          <svg viewBox="0 0 200 150" class="absolute inset-0 w-full h-full">
-            <g fill="none" stroke="#c8b48a" stroke-width="0.4" opacity="0.5">
-              <path d="M0,70 Q60,50 120,70 T200,70"/>
-              <path d="M0,100 Q60,80 120,100 T200,100"/>
-            </g>
-            <polyline points="20,100 50,80 80,90 110,75 140,85 170,70 185,90" fill="none" stroke="#f97316" stroke-width="1.5" />
-          </svg>
+        <div class="aspect-[4/3] relative overflow-hidden" style="background-image: linear-gradient(rgba(10,10,10,0.4), rgba(10,10,10,0.5)), url('https://loremflickr.com/1200/800/grassland,prairie,sunset?lock=4'); background-size: cover; background-position: center;">
           <div class="absolute top-2 left-2 bg-ink/80 border border-khaki text-khaki text-[9px] mono px-1.5 py-0.5">EASY</div>
         </div>
         <div class="p-4">
@@ -469,6 +462,215 @@
             <span class="text-snow">丹巴-四姑娘山路窄弯多，夜间禁行；务必 17:00 前抵达住宿点</span>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- 沿途推荐景点 · AI 沿途搜索 -->
+    <div class="mb-6">
+      <div class="flex items-end justify-between mb-3 border-b border-line pb-2">
+        <div>
+          <div class="text-[10px] mono text-rust tracking-[0.3em]">▸ POI PICK · AI 沿途搜索 · 12 项</div>
+          <div class="display text-2xl text-snow mt-1">沿途景点 <span class="text-ash">·</span> <span id="poi-stat-add" class="text-rust num-wide">0</span> 添加 <span class="text-ash">·</span> <span id="poi-stat-avoid" class="text-alert num-wide">0</span> 避开</div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="poi-reset" class="text-[10px] mono text-ash hover:text-snow tracking-widest px-3 py-1.5 border border-line transition">重置</button>
+          <button id="poi-replan" class="border border-rust text-rust head tracking-widest text-[10px] px-4 py-1.5 hover:bg-rust hover:text-ink transition">↻ 重新规划</button>
+        </div>
+      </div>
+      <div id="poi-list" class="flex gap-3 overflow-x-auto no-bar pb-3 -mx-1 px-1">
+
+        <div class="poi-card corner-target border border-line bg-card/60 overflow-hidden flex-shrink-0 w-[210px]" data-state="default">
+          <span class="ct-tl"></span><span class="ct-tr"></span><span class="ct-bl"></span><span class="ct-br"></span>
+          <div class="poi-img aspect-[16/9]" style="background-image: linear-gradient(rgba(10,10,10,0.15), rgba(10,10,10,0.15)), url('https://loremflickr.com/400/250/canyon,forest,river?lock=19'); background-size: cover; background-position: center;"></div>
+          <div class="p-3">
+            <div class="flex items-start justify-between gap-2 mb-1.5">
+              <div class="text-snow text-sm font-medium leading-tight">碧峰峡</div>
+              <div class="poi-state text-[9px] mono tracking-widest px-1.5 py-0.5 border border-line text-ash">可选</div>
+            </div>
+            <div class="text-[10px] mono text-ash flex items-center gap-1.5"><span>雅安</span><span class="text-faint">·</span><span>自然</span></div>
+            <div class="mt-2 flex gap-1">
+              <button data-poi-action="add" class="btn-add flex-1 border border-line text-ash hover:border-rust hover:text-rust text-[10px] head tracking-widest py-1.5 transition">+ 添加</button>
+              <button data-poi-action="avoid" class="btn-avoid flex-1 border border-line text-ash hover:border-alert hover:text-alert text-[10px] head tracking-widest py-1.5 transition">× 避开</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="poi-card corner-target border border-line bg-card/60 overflow-hidden flex-shrink-0 w-[210px]" data-state="default">
+          <span class="ct-tl"></span><span class="ct-tr"></span><span class="ct-bl"></span><span class="ct-br"></span>
+          <div class="poi-img aspect-[16/9]" style="background-image: linear-gradient(rgba(10,10,10,0.15), rgba(10,10,10,0.15)), url('https://loremflickr.com/400/250/mountain,forest,river?lock=20'); background-size: cover; background-position: center;"></div>
+          <div class="p-3">
+            <div class="flex items-start justify-between gap-2 mb-1.5">
+              <div class="text-snow text-sm font-medium leading-tight">二郎山·喇叭河</div>
+              <div class="poi-state text-[9px] mono tracking-widest px-1.5 py-0.5 border border-line text-ash">可选</div>
+            </div>
+            <div class="text-[10px] mono text-ash flex items-center gap-1.5"><span>雅安</span><span class="text-faint">·</span><span>自然</span></div>
+            <div class="mt-2 flex gap-1">
+              <button data-poi-action="add" class="btn-add flex-1 border border-line text-ash hover:border-rust hover:text-rust text-[10px] head tracking-widest py-1.5 transition">+ 添加</button>
+              <button data-poi-action="avoid" class="btn-avoid flex-1 border border-line text-ash hover:border-alert hover:text-alert text-[10px] head tracking-widest py-1.5 transition">× 避开</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="poi-card corner-target border border-line bg-card/60 overflow-hidden flex-shrink-0 w-[210px]" data-state="default">
+          <span class="ct-tl"></span><span class="ct-tr"></span><span class="ct-bl"></span><span class="ct-br"></span>
+          <div class="poi-img aspect-[16/9]" style="background-image: linear-gradient(rgba(10,10,10,0.15), rgba(10,10,10,0.15)), url('https://loremflickr.com/400/250/bridge,river,ancient?lock=21'); background-size: cover; background-position: center;"></div>
+          <div class="p-3">
+            <div class="flex items-start justify-between gap-2 mb-1.5">
+              <div class="text-snow text-sm font-medium leading-tight">泸定桥</div>
+              <div class="poi-state text-[9px] mono tracking-widest px-1.5 py-0.5 border border-line text-ash">可选</div>
+            </div>
+            <div class="text-[10px] mono text-ash flex items-center gap-1.5"><span>甘孜</span><span class="text-faint">·</span><span>人文</span></div>
+            <div class="mt-2 flex gap-1">
+              <button data-poi-action="add" class="btn-add flex-1 border border-line text-ash hover:border-rust hover:text-rust text-[10px] head tracking-widest py-1.5 transition">+ 添加</button>
+              <button data-poi-action="avoid" class="btn-avoid flex-1 border border-line text-ash hover:border-alert hover:text-alert text-[10px] head tracking-widest py-1.5 transition">× 避开</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="poi-card corner-target border border-line bg-card/60 overflow-hidden flex-shrink-0 w-[210px]" data-state="default">
+          <span class="ct-tl"></span><span class="ct-tr"></span><span class="ct-bl"></span><span class="ct-br"></span>
+          <div class="poi-img aspect-[16/9]" style="background-image: linear-gradient(rgba(10,10,10,0.15), rgba(10,10,10,0.15)), url('https://loremflickr.com/400/250/mountain,pass,snow?lock=22'); background-size: cover; background-position: center;"></div>
+          <div class="p-3">
+            <div class="flex items-start justify-between gap-2 mb-1.5">
+              <div class="text-snow text-sm font-medium leading-tight">折多山垭口</div>
+              <div class="poi-state text-[9px] mono tracking-widest px-1.5 py-0.5 border border-line text-ash">可选</div>
+            </div>
+            <div class="text-[10px] mono text-ash flex items-center gap-1.5"><span>甘孜</span><span class="text-faint">·</span><span>4298m</span></div>
+            <div class="mt-2 flex gap-1">
+              <button data-poi-action="add" class="btn-add flex-1 border border-line text-ash hover:border-rust hover:text-rust text-[10px] head tracking-widest py-1.5 transition">+ 添加</button>
+              <button data-poi-action="avoid" class="btn-avoid flex-1 border border-line text-ash hover:border-alert hover:text-alert text-[10px] head tracking-widest py-1.5 transition">× 避开</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="poi-card corner-target border border-line bg-card/60 overflow-hidden flex-shrink-0 w-[210px]" data-state="default">
+          <span class="ct-tl"></span><span class="ct-tr"></span><span class="ct-bl"></span><span class="ct-br"></span>
+          <div class="poi-img aspect-[16/9]" style="background-image: linear-gradient(rgba(10,10,10,0.15), rgba(10,10,10,0.15)), url('https://loremflickr.com/400/250/tibetan,village,photography?lock=23'); background-size: cover; background-position: center;"></div>
+          <div class="p-3">
+            <div class="flex items-start justify-between gap-2 mb-1.5">
+              <div class="text-snow text-sm font-medium leading-tight">新都桥·摄影天堂</div>
+              <div class="poi-state text-[9px] mono tracking-widest px-1.5 py-0.5 border border-line text-ash">可选</div>
+            </div>
+            <div class="text-[10px] mono text-ash flex items-center gap-1.5"><span>甘孜</span><span class="text-faint">·</span><span>自然</span></div>
+            <div class="mt-2 flex gap-1">
+              <button data-poi-action="add" class="btn-add flex-1 border border-line text-ash hover:border-rust hover:text-rust text-[10px] head tracking-widest py-1.5 transition">+ 添加</button>
+              <button data-poi-action="avoid" class="btn-avoid flex-1 border border-line text-ash hover:border-alert hover:text-alert text-[10px] head tracking-widest py-1.5 transition">× 避开</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="poi-card corner-target border border-line bg-card/60 overflow-hidden flex-shrink-0 w-[210px]" data-state="default">
+          <span class="ct-tl"></span><span class="ct-tr"></span><span class="ct-bl"></span><span class="ct-br"></span>
+          <div class="poi-img aspect-[16/9]" style="background-image: linear-gradient(rgba(10,10,10,0.15), rgba(10,10,10,0.15)), url('https://loremflickr.com/400/250/grassland,monastery?lock=24'); background-size: cover; background-position: center;"></div>
+          <div class="p-3">
+            <div class="flex items-start justify-between gap-2 mb-1.5">
+              <div class="text-snow text-sm font-medium leading-tight">塔公草原</div>
+              <div class="poi-state text-[9px] mono tracking-widest px-1.5 py-0.5 border border-line text-ash">可选</div>
+            </div>
+            <div class="text-[10px] mono text-ash flex items-center gap-1.5"><span>甘孜</span><span class="text-faint">·</span><span>自然</span></div>
+            <div class="mt-2 flex gap-1">
+              <button data-poi-action="add" class="btn-add flex-1 border border-line text-ash hover:border-rust hover:text-rust text-[10px] head tracking-widest py-1.5 transition">+ 添加</button>
+              <button data-poi-action="avoid" class="btn-avoid flex-1 border border-line text-ash hover:border-alert hover:text-alert text-[10px] head tracking-widest py-1.5 transition">× 避开</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="poi-card corner-target border border-line bg-card/60 overflow-hidden flex-shrink-0 w-[210px]" data-state="default">
+          <span class="ct-tl"></span><span class="ct-tr"></span><span class="ct-bl"></span><span class="ct-br"></span>
+          <div class="poi-img aspect-[16/9]" style="background-image: linear-gradient(rgba(10,10,10,0.15), rgba(10,10,10,0.15)), url('https://loremflickr.com/400/250/snow,mountain,peak?lock=25'); background-size: cover; background-position: center;"></div>
+          <div class="p-3">
+            <div class="flex items-start justify-between gap-2 mb-1.5">
+              <div class="text-snow text-sm font-medium leading-tight">雅拉雪山</div>
+              <div class="poi-state text-[9px] mono tracking-widest px-1.5 py-0.5 border border-line text-ash">可选</div>
+            </div>
+            <div class="text-[10px] mono text-ash flex items-center gap-1.5"><span>甘孜</span><span class="text-faint">·</span><span>5820m</span></div>
+            <div class="mt-2 flex gap-1">
+              <button data-poi-action="add" class="btn-add flex-1 border border-line text-ash hover:border-rust hover:text-rust text-[10px] head tracking-widest py-1.5 transition">+ 添加</button>
+              <button data-poi-action="avoid" class="btn-avoid flex-1 border border-line text-ash hover:border-alert hover:text-alert text-[10px] head tracking-widest py-1.5 transition">× 避开</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="poi-card corner-target border border-line bg-card/60 overflow-hidden flex-shrink-0 w-[210px]" data-state="default">
+          <span class="ct-tl"></span><span class="ct-tr"></span><span class="ct-bl"></span><span class="ct-br"></span>
+          <div class="poi-img aspect-[16/9]" style="background-image: linear-gradient(rgba(10,10,10,0.15), rgba(10,10,10,0.15)), url('https://loremflickr.com/400/250/rock,formation?lock=26'); background-size: cover; background-position: center;"></div>
+          <div class="p-3">
+            <div class="flex items-start justify-between gap-2 mb-1.5">
+              <div class="text-snow text-sm font-medium leading-tight">八美石林</div>
+              <div class="poi-state text-[9px] mono tracking-widest px-1.5 py-0.5 border border-line text-ash">可选</div>
+            </div>
+            <div class="text-[10px] mono text-ash flex items-center gap-1.5"><span>甘孜</span><span class="text-faint">·</span><span>自然</span></div>
+            <div class="mt-2 flex gap-1">
+              <button data-poi-action="add" class="btn-add flex-1 border border-line text-ash hover:border-rust hover:text-rust text-[10px] head tracking-widest py-1.5 transition">+ 添加</button>
+              <button data-poi-action="avoid" class="btn-avoid flex-1 border border-line text-ash hover:border-alert hover:text-alert text-[10px] head tracking-widest py-1.5 transition">× 避开</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="poi-card corner-target border border-line bg-card/60 overflow-hidden flex-shrink-0 w-[210px]" data-state="default">
+          <span class="ct-tl"></span><span class="ct-tr"></span><span class="ct-bl"></span><span class="ct-br"></span>
+          <div class="poi-img aspect-[16/9]" style="background-image: linear-gradient(rgba(10,10,10,0.15), rgba(10,10,10,0.15)), url('https://loremflickr.com/400/250/tibetan,village,ancient?lock=27'); background-size: cover; background-position: center;"></div>
+          <div class="p-3">
+            <div class="flex items-start justify-between gap-2 mb-1.5">
+              <div class="text-snow text-sm font-medium leading-tight">甲居藏寨</div>
+              <div class="poi-state text-[9px] mono tracking-widest px-1.5 py-0.5 border border-line text-ash">可选</div>
+            </div>
+            <div class="text-[10px] mono text-ash flex items-center gap-1.5"><span>甘孜</span><span class="text-faint">·</span><span>人文</span></div>
+            <div class="mt-2 flex gap-1">
+              <button data-poi-action="add" class="btn-add flex-1 border border-line text-ash hover:border-rust hover:text-rust text-[10px] head tracking-widest py-1.5 transition">+ 添加</button>
+              <button data-poi-action="avoid" class="btn-avoid flex-1 border border-line text-ash hover:border-alert hover:text-alert text-[10px] head tracking-widest py-1.5 transition">× 避开</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="poi-card corner-target border border-line bg-card/60 overflow-hidden flex-shrink-0 w-[210px]" data-state="default">
+          <span class="ct-tl"></span><span class="ct-tr"></span><span class="ct-bl"></span><span class="ct-br"></span>
+          <div class="poi-img aspect-[16/9]" style="background-image: linear-gradient(rgba(10,10,10,0.15), rgba(10,10,10,0.15)), url('https://loremflickr.com/400/250/tower,ancient?lock=28'); background-size: cover; background-position: center;"></div>
+          <div class="p-3">
+            <div class="flex items-start justify-between gap-2 mb-1.5">
+              <div class="text-snow text-sm font-medium leading-tight">梭坡碉楼</div>
+              <div class="poi-state text-[9px] mono tracking-widest px-1.5 py-0.5 border border-line text-ash">可选</div>
+            </div>
+            <div class="text-[10px] mono text-ash flex items-center gap-1.5"><span>甘孜</span><span class="text-faint">·</span><span>人文</span></div>
+            <div class="mt-2 flex gap-1">
+              <button data-poi-action="add" class="btn-add flex-1 border border-line text-ash hover:border-rust hover:text-rust text-[10px] head tracking-widest py-1.5 transition">+ 添加</button>
+              <button data-poi-action="avoid" class="btn-avoid flex-1 border border-line text-ash hover:border-alert hover:text-alert text-[10px] head tracking-widest py-1.5 transition">× 避开</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="poi-card corner-target border border-line bg-card/60 overflow-hidden flex-shrink-0 w-[210px]" data-state="default">
+          <span class="ct-tl"></span><span class="ct-tr"></span><span class="ct-bl"></span><span class="ct-br"></span>
+          <div class="poi-img aspect-[16/9]" style="background-image: linear-gradient(rgba(10,10,10,0.15), rgba(10,10,10,0.15)), url('https://loremflickr.com/400/250/snow,mountain,lake?lock=29'); background-size: cover; background-position: center;"></div>
+          <div class="p-3">
+            <div class="flex items-start justify-between gap-2 mb-1.5">
+              <div class="text-snow text-sm font-medium leading-tight">四姑娘山·双桥沟</div>
+              <div class="poi-state text-[9px] mono tracking-widest px-1.5 py-0.5 border border-line text-ash">可选</div>
+            </div>
+            <div class="text-[10px] mono text-ash flex items-center gap-1.5"><span>阿坝</span><span class="text-faint">·</span><span>自然</span></div>
+            <div class="mt-2 flex gap-1">
+              <button data-poi-action="add" class="btn-add flex-1 border border-line text-ash hover:border-rust hover:text-rust text-[10px] head tracking-widest py-1.5 transition">+ 添加</button>
+              <button data-poi-action="avoid" class="btn-avoid flex-1 border border-line text-ash hover:border-alert hover:text-alert text-[10px] head tracking-widest py-1.5 transition">× 避开</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="poi-card corner-target border border-line bg-card/60 overflow-hidden flex-shrink-0 w-[210px]" data-state="default">
+          <span class="ct-tl"></span><span class="ct-tr"></span><span class="ct-bl"></span><span class="ct-br"></span>
+          <div class="poi-img aspect-[16/9]" style="background-image: linear-gradient(rgba(10,10,10,0.15), rgba(10,10,10,0.15)), url('https://loremflickr.com/400/250/panda,bamboo,forest?lock=30'); background-size: cover; background-position: center;"></div>
+          <div class="p-3">
+            <div class="flex items-start justify-between gap-2 mb-1.5">
+              <div class="text-snow text-sm font-medium leading-tight">卧龙大熊猫基地</div>
+              <div class="poi-state text-[9px] mono tracking-widest px-1.5 py-0.5 border border-line text-ash">可选</div>
+            </div>
+            <div class="text-[10px] mono text-ash flex items-center gap-1.5"><span>阿坝</span><span class="text-faint">·</span><span>人文</span></div>
+            <div class="mt-2 flex gap-1">
+              <button data-poi-action="add" class="btn-add flex-1 border border-line text-ash hover:border-rust hover:text-rust text-[10px] head tracking-widest py-1.5 transition">+ 添加</button>
+              <button data-poi-action="avoid" class="btn-avoid flex-1 border border-line text-ash hover:border-alert hover:text-alert text-[10px] head tracking-widest py-1.5 transition">× 避开</button>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
 
@@ -861,7 +1063,7 @@
             <div class="head text-[9px] text-rust tracking-[0.3em] mb-2">▸ TODAY'S CHECK-INS · 3</div>
             <div class="space-y-2">
               <div class="border border-line bg-card p-2.5 flex items-center gap-3">
-                <div class="w-12 h-12 bg-gradient-to-br from-khaki/40 to-ink flex items-center justify-center text-khaki text-xs display">10:48</div>
+                <div class="w-12 h-12 bg-card flex items-center justify-center text-snow text-xs display" style="background-image: linear-gradient(rgba(10,10,10,0.3), rgba(10,10,10,0.3)), url('https://loremflickr.com/1200/800/mountain,pass,snow?lock=11'); background-size: cover; background-position: center;">10:48</div>
                 <div class="flex-1">
                   <div class="text-snow text-xs">折多山垭口</div>
                   <div class="text-ash text-[10px] mono">4298m · 团雾</div>
@@ -869,7 +1071,7 @@
                 <div class="text-rust text-lg">●</div>
               </div>
               <div class="border border-line bg-card p-2.5 flex items-center gap-3">
-                <div class="w-12 h-12 bg-gradient-to-br from-topo/40 to-ink flex items-center justify-center text-topo text-xs display">12:20</div>
+                <div class="w-12 h-12 bg-card flex items-center justify-center text-snow text-xs display" style="background-image: linear-gradient(rgba(10,10,10,0.3), rgba(10,10,10,0.3)), url('https://loremflickr.com/1200/800/tibetan,village?lock=12'); background-size: cover; background-position: center;">12:20</div>
                 <div class="flex-1">
                   <div class="text-snow text-xs">新都桥 · 摄影天堂</div>
                   <div class="text-ash text-[10px] mono">3460m · 晴</div>
@@ -877,7 +1079,7 @@
                 <div class="text-rust text-lg">●</div>
               </div>
               <div class="border border-line bg-card p-2.5 flex items-center gap-3">
-                <div class="w-12 h-12 bg-gradient-to-br from-warn/40 to-ink flex items-center justify-center text-warn text-xs display">14:05</div>
+                <div class="w-12 h-12 bg-card flex items-center justify-center text-snow text-xs display" style="background-image: linear-gradient(rgba(10,10,10,0.3), rgba(10,10,10,0.3)), url('https://loremflickr.com/1200/800/grassland,monastery?lock=13'); background-size: cover; background-position: center;">14:05</div>
                 <div class="flex-1">
                   <div class="text-snow text-xs">塔公草原</div>
                   <div class="text-ash text-[10px] mono">3730m · 多云</div>
@@ -939,35 +1141,8 @@
     </div>
 
     <!-- 封面 -->
-    <div class="corner-target border border-line bg-card aspect-[21/9] relative overflow-hidden mb-12">
+    <div class="corner-target border border-line bg-card aspect-[21/9] relative overflow-hidden mb-12" style="background-image: linear-gradient(rgba(10,10,10,0.3), rgba(10,10,10,0.4)), url('https://loremflickr.com/1200/800/mountain,sunset,snow?lock=18'); background-size: cover; background-position: center;">
       <span class="ct-tl"></span><span class="ct-tr"></span><span class="ct-bl"></span><span class="ct-br"></span>
-      <!-- 抽象山景 SVG -->
-      <svg viewBox="0 0 1200 500" class="absolute inset-0 w-full h-full">
-        <defs>
-          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="#1a1a1a"/>
-            <stop offset="60%" stop-color="#3a2a1a"/>
-            <stop offset="100%" stop-color="#f97316" stop-opacity="0.3"/>
-          </linearGradient>
-          <linearGradient id="mtn1" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="#0a0a0a"/>
-            <stop offset="100%" stop-color="#1a1a1a"/>
-          </linearGradient>
-        </defs>
-        <rect width="1200" height="500" fill="url(#sky)"/>
-        <!-- 太阳 -->
-        <circle cx="900" cy="180" r="50" fill="#f97316" opacity="0.8"/>
-        <circle cx="900" cy="180" r="80" fill="#f97316" opacity="0.2"/>
-        <!-- 远山 -->
-        <polygon points="0,400 200,200 350,300 500,150 700,280 900,180 1100,300 1200,250 1200,500 0,500" fill="url(#mtn1)" opacity="0.5"/>
-        <!-- 近山 -->
-        <polygon points="0,500 100,350 300,400 450,300 600,380 800,320 1000,400 1200,350 1200,500" fill="#0a0a0a"/>
-        <!-- 雪顶线 -->
-        <g stroke="#c8b48a" stroke-width="0.5" opacity="0.6" fill="none">
-          <path d="M450,300 L500,330"/>
-          <path d="M800,320 L850,350"/>
-        </g>
-      </svg>
       <div class="absolute bottom-6 left-6 right-6 flex items-end justify-between">
         <div>
           <div class="display text-3xl text-snow">WESTERN SICHUAN</div>
@@ -1059,61 +1234,19 @@
         <!-- 右侧：照片大图 + 切换 -->
         <div class="col-span-12 md:col-span-7 p-6 flex flex-col">
           <!-- 大照片 -->
-          <div class="aspect-[4/3] bg-gradient-to-br from-khaki/40 via-surface to-ink relative overflow-hidden border border-line">
+          <div class="aspect-[4/3] relative overflow-hidden border border-line bg-ink">
             <!-- 模拟照片内容（不同 id 切换不同色调）-->
-            <div id="photo-1" class="photo-frame absolute inset-0 fade-in">
-              <svg viewBox="0 0 600 450" class="absolute inset-0 w-full h-full">
-                <defs>
-                  <linearGradient id="pg1" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stop-color="#1a1a1a"/>
-                    <stop offset="100%" stop-color="#8a7d5a"/>
-                  </linearGradient>
-                </defs>
-                <rect width="600" height="450" fill="url(#pg1)"/>
-                <polygon points="0,400 150,200 250,280 400,150 550,250 600,220 600,450 0,450" fill="#0a0a0a" opacity="0.6"/>
-                <circle cx="450" cy="120" r="30" fill="#f97316" opacity="0.6"/>
-              </svg>
-              <div class="absolute top-3 left-3 bg-ink/80 border border-rust text-rust text-[10px] mono px-2 py-1">1 / 4 · EXIF GPS</div>
+            <div id="photo-1" class="photo-frame absolute inset-0 fade-in" style="background-image: linear-gradient(rgba(10,10,10,0.2), rgba(10,10,10,0.2)), url('https://loremflickr.com/1200/800/mountain,prayer,flags?lock=14'); background-size: cover; background-position: center;">
+              <div class="absolute top-3 left-3 bg-ink/80 border border-rust text-snow text-[10px] mono px-2 py-1">1 / 4 · EXIF GPS</div>
             </div>
-            <div id="photo-2" class="photo-frame absolute inset-0 hidden">
-              <svg viewBox="0 0 600 450" class="absolute inset-0 w-full h-full">
-                <rect width="600" height="450" fill="#3a2a1a"/>
-                <polygon points="0,300 100,200 200,250 300,150 400,220 500,180 600,250 600,450 0,450" fill="#1a1a1a"/>
-                <rect x="100" y="250" width="60" height="100" fill="#c8b48a" opacity="0.5"/>
-              </svg>
-              <div class="absolute top-3 left-3 bg-ink/80 border border-rust text-rust text-[10px] mono px-2 py-1">2 / 4 · EXIF GPS</div>
+            <div id="photo-2" class="photo-frame absolute inset-0 hidden" style="background-image: linear-gradient(rgba(10,10,10,0.2), rgba(10,10,10,0.2)), url('https://loremflickr.com/1200/800/tibet,barley,harvest?lock=15'); background-size: cover; background-position: center;">
+              <div class="absolute top-3 left-3 bg-ink/80 border border-rust text-snow text-[10px] mono px-2 py-1">2 / 4 · EXIF GPS</div>
             </div>
-            <div id="photo-3" class="photo-frame absolute inset-0 hidden">
-              <svg viewBox="0 0 600 450" class="absolute inset-0 w-full h-full">
-                <defs>
-                  <linearGradient id="pg3" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stop-color="#0a0a0a"/>
-                    <stop offset="100%" stop-color="#84cc16" stop-opacity="0.2"/>
-                  </linearGradient>
-                </defs>
-                <rect width="600" height="450" fill="url(#pg3)"/>
-                <polygon points="0,400 200,250 400,300 600,200 600,450 0,450" fill="#0a0a0a"/>
-                <g stroke="#c8b48a" stroke-width="0.3" opacity="0.5" fill="none">
-                  <path d="M0,200 Q150,180 300,200 T600,200"/>
-                  <path d="M0,240 Q150,220 300,240 T600,240"/>
-                </g>
-              </svg>
-              <div class="absolute top-3 left-3 bg-ink/80 border border-rust text-rust text-[10px] mono px-2 py-1">3 / 4 · EXIF GPS</div>
+            <div id="photo-3" class="photo-frame absolute inset-0 hidden" style="background-image: linear-gradient(rgba(10,10,10,0.2), rgba(10,10,10,0.2)), url('https://loremflickr.com/1200/800/grassland,monastery?lock=16'); background-size: cover; background-position: center;">
+              <div class="absolute top-3 left-3 bg-ink/80 border border-rust text-snow text-[10px] mono px-2 py-1">3 / 4 · EXIF GPS</div>
             </div>
-            <div id="photo-4" class="photo-frame absolute inset-0 hidden">
-              <svg viewBox="0 0 600 450" class="absolute inset-0 w-full h-full">
-                <rect width="600" height="450" fill="#0a0a0a"/>
-                <polygon points="0,450 100,300 200,350 300,250 400,320 500,280 600,350 600,450" fill="#c8b48a" opacity="0.3"/>
-                <polygon points="0,450 150,320 300,360 450,300 600,340 600,450" fill="#0a0a0a"/>
-                <g fill="#f97316">
-                  <circle cx="200" cy="100" r="2"/>
-                  <circle cx="400" cy="80" r="1.5"/>
-                  <circle cx="500" cy="120" r="2"/>
-                  <circle cx="100" cy="150" r="1.5"/>
-                  <circle cx="350" cy="60" r="1"/>
-                </g>
-              </svg>
-              <div class="absolute top-3 left-3 bg-ink/80 border border-rust text-rust text-[10px] mono px-2 py-1">4 / 4 · EXIF GPS</div>
+            <div id="photo-4" class="photo-frame absolute inset-0 hidden" style="background-image: linear-gradient(rgba(10,10,10,0.2), rgba(10,10,10,0.2)), url('https://loremflickr.com/1200/800/tibetan,village,sunset?lock=17'); background-size: cover; background-position: center;">
+              <div class="absolute top-3 left-3 bg-ink/80 border border-rust text-snow text-[10px] mono px-2 py-1">4 / 4 · EXIF GPS</div>
             </div>
           </div>
 
@@ -1191,16 +1324,7 @@
       <!-- 路线 1 川西 -->
       <div class="corner-target border border-line bg-card overflow-hidden group cursor-pointer hover:border-rust transition" data-go="plan">
         <span class="ct-tl"></span><span class="ct-tr"></span><span class="ct-bl"></span><span class="ct-br"></span>
-        <div class="aspect-[16/9] bg-gradient-to-br from-khaki/30 via-surface to-ink relative overflow-hidden">
-          <svg viewBox="0 0 400 225" class="absolute inset-0 w-full h-full">
-            <g fill="none" stroke="#c8b48a" stroke-width="0.4" opacity="0.4">
-              <path d="M0,60 Q100,40 200,60 T400,60"/>
-              <path d="M0,100 Q100,80 200,100 T400,100"/>
-              <path d="M0,140 Q100,120 200,140 T400,140"/>
-              <path d="M0,180 Q100,160 200,180 T400,180"/>
-            </g>
-            <polyline points="40,180 100,140 160,110 220,80 280,60 340,90 380,130" fill="none" stroke="#f97316" stroke-width="2"/>
-          </svg>
+        <div class="aspect-[16/9] relative overflow-hidden" style="background-image: linear-gradient(rgba(10,10,10,0.4), rgba(10,10,10,0.5)), url('https://loremflickr.com/1200/800/sichuan,mountain,monastery?lock=5'); background-size: cover; background-position: center;">
           <div class="absolute top-3 left-3 bg-ink/80 border border-rust text-rust text-[9px] mono px-1.5 py-0.5">● 轻越野</div>
           <div class="absolute bottom-3 right-3 display text-3xl text-snow/80 num-wide">1280<span class="text-sm">KM</span></div>
         </div>
@@ -1220,14 +1344,7 @@
       <!-- 路线 2 G219 -->
       <div class="corner-target border border-line bg-card overflow-hidden group cursor-pointer hover:border-rust transition">
         <span class="ct-tl"></span><span class="ct-tr"></span><span class="ct-bl"></span><span class="ct-br"></span>
-        <div class="aspect-[16/9] bg-gradient-to-br from-warn/20 via-surface to-ink relative overflow-hidden">
-          <svg viewBox="0 0 400 225" class="absolute inset-0 w-full h-full">
-            <g fill="none" stroke="#c8b48a" stroke-width="0.4" opacity="0.4">
-              <path d="M0,80 Q100,60 200,80 T400,80"/>
-              <path d="M0,140 Q100,120 200,140 T400,140"/>
-            </g>
-            <polyline points="40,200 80,160 130,130 180,100 230,70 290,50 350,40 380,30" fill="none" stroke="#f97316" stroke-width="2"/>
-          </svg>
+        <div class="aspect-[16/9] relative overflow-hidden" style="background-image: linear-gradient(rgba(10,10,10,0.4), rgba(10,10,10,0.5)), url('https://loremflickr.com/1200/800/himalayas,road?lock=6'); background-size: cover; background-position: center;">
           <div class="absolute top-3 left-3 bg-ink/80 border border-alert text-alert text-[9px] mono px-1.5 py-0.5">穿越 · 硬核</div>
           <div class="absolute bottom-3 right-3 display text-3xl text-snow/80 num-wide">2140<span class="text-sm">KM</span></div>
         </div>
@@ -1247,14 +1364,7 @@
       <!-- 路线 3 独库 -->
       <div class="corner-target border border-line bg-card overflow-hidden group cursor-pointer hover:border-rust transition">
         <span class="ct-tl"></span><span class="ct-tr"></span><span class="ct-bl"></span><span class="ct-br"></span>
-        <div class="aspect-[16/9] bg-gradient-to-br from-topo/20 via-surface to-ink relative overflow-hidden">
-          <svg viewBox="0 0 400 225" class="absolute inset-0 w-full h-full">
-            <g fill="none" stroke="#c8b48a" stroke-width="0.4" opacity="0.4">
-              <path d="M0,100 Q100,80 200,100 T400,100"/>
-              <path d="M0,150 Q100,130 200,150 T400,150"/>
-            </g>
-            <polyline points="40,180 100,140 160,110 220,90 290,70 360,55" fill="none" stroke="#f97316" stroke-width="2"/>
-          </svg>
+        <div class="aspect-[16/9] relative overflow-hidden" style="background-image: linear-gradient(rgba(10,10,10,0.4), rgba(10,10,10,0.5)), url('https://loremflickr.com/1200/800/snow,mountain,pass?lock=7'); background-size: cover; background-position: center;">
           <div class="absolute top-3 left-3 bg-ink/80 border border-topo text-topo text-[9px] mono px-1.5 py-0.5">风景路</div>
           <div class="absolute bottom-3 right-3 display text-3xl text-snow/80 num-wide">562<span class="text-sm">KM</span></div>
         </div>
@@ -1274,14 +1384,7 @@
       <!-- 路线 4 坝上 -->
       <div class="corner-target border border-line bg-card overflow-hidden group cursor-pointer hover:border-rust transition">
         <span class="ct-tl"></span><span class="ct-tr"></span><span class="ct-bl"></span><span class="ct-br"></span>
-        <div class="aspect-[16/9] bg-gradient-to-br from-khaki/20 via-surface to-ink relative overflow-hidden">
-          <svg viewBox="0 0 400 225" class="absolute inset-0 w-full h-full">
-            <g fill="none" stroke="#c8b48a" stroke-width="0.4" opacity="0.4">
-              <path d="M0,120 Q100,100 200,120 T400,120"/>
-              <path d="M0,170 Q100,150 200,170 T400,170"/>
-            </g>
-            <polyline points="40,150 90,110 140,140 200,100 260,130 320,90 370,120" fill="none" stroke="#f97316" stroke-width="2"/>
-          </svg>
+        <div class="aspect-[16/9] relative overflow-hidden" style="background-image: linear-gradient(rgba(10,10,10,0.4), rgba(10,10,10,0.5)), url('https://loremflickr.com/1200/800/prairie,grassland?lock=8'); background-size: cover; background-position: center;">
           <div class="absolute top-3 left-3 bg-ink/80 border border-khaki text-khaki text-[9px] mono px-1.5 py-0.5">休闲</div>
           <div class="absolute bottom-3 right-3 display text-3xl text-snow/80 num-wide">680<span class="text-sm">KM</span></div>
         </div>
@@ -1301,14 +1404,7 @@
       <!-- 路线 5 丙察察 -->
       <div class="corner-target border border-line bg-card overflow-hidden group cursor-pointer hover:border-rust transition">
         <span class="ct-tl"></span><span class="ct-tr"></span><span class="ct-bl"></span><span class="ct-br"></span>
-        <div class="aspect-[16/9] bg-gradient-to-br from-alert/20 via-surface to-ink relative overflow-hidden">
-          <svg viewBox="0 0 400 225" class="absolute inset-0 w-full h-full">
-            <g fill="none" stroke="#c8b48a" stroke-width="0.4" opacity="0.4">
-              <path d="M0,90 Q100,70 200,90 T400,90"/>
-              <path d="M0,150 Q100,130 200,150 T400,150"/>
-            </g>
-            <polyline points="40,170 100,130 160,100 220,70 280,90 340,60 380,40" fill="none" stroke="#f97316" stroke-width="2"/>
-          </svg>
+        <div class="aspect-[16/9] relative overflow-hidden" style="background-image: linear-gradient(rgba(10,10,10,0.4), rgba(10,10,10,0.5)), url('https://loremflickr.com/1200/800/tibet,village,mountain?lock=9'); background-size: cover; background-position: center;">
           <div class="absolute top-3 left-3 bg-ink/80 border border-alert text-alert text-[9px] mono px-1.5 py-0.5">穿越 · 硬核</div>
           <div class="absolute bottom-3 right-3 display text-3xl text-snow/80 num-wide">960<span class="text-sm">KM</span></div>
         </div>
@@ -1328,14 +1424,7 @@
       <!-- 路线 6 西藏小环线 -->
       <div class="corner-target border border-line bg-card overflow-hidden group cursor-pointer hover:border-rust transition">
         <span class="ct-tl"></span><span class="ct-tr"></span><span class="ct-bl"></span><span class="ct-br"></span>
-        <div class="aspect-[16/9] bg-gradient-to-br from-warn/15 via-surface to-ink relative overflow-hidden">
-          <svg viewBox="0 0 400 225" class="absolute inset-0 w-full h-full">
-            <g fill="none" stroke="#c8b48a" stroke-width="0.4" opacity="0.4">
-              <path d="M0,110 Q100,90 200,110 T400,110"/>
-              <path d="M0,160 Q100,140 200,160 T400,160"/>
-            </g>
-            <polyline points="40,180 100,140 160,150 220,110 280,130 340,90 380,110" fill="none" stroke="#f97316" stroke-width="2"/>
-          </svg>
+        <div class="aspect-[16/9] relative overflow-hidden" style="background-image: linear-gradient(rgba(10,10,10,0.4), rgba(10,10,10,0.5)), url('https://loremflickr.com/1200/800/lhasa,tibet,monastery?lock=10'); background-size: cover; background-position: center;">
           <div class="absolute top-3 left-3 bg-ink/80 border border-warn text-warn text-[10px] mono px-1.5 py-0.5">高原</div>
           <div class="absolute bottom-3 right-3 display text-3xl text-snow/80 num-wide">1480<span class="text-sm">KM</span></div>
         </div>
@@ -1450,6 +1539,133 @@
     }
   });
   showPhoto(0);
+
+  // ===== 途径点 (Waypoints) =====
+  const MAX_WP = 5;
+  const wpList = document.getElementById('waypoints-list');
+  const wpAdd = document.getElementById('wp-add');
+
+  function renderWpAdd() {
+    wpAdd.textContent = `+ ADD WAYPOINT · ${wpList.children.length} / ${MAX_WP}`;
+    wpAdd.disabled = wpList.children.length >= MAX_WP;
+  }
+
+  function addWaypoint(name = '', type = 'must') {
+    if (wpList.children.length >= MAX_WP) return;
+    const letter = String.fromCharCode(65 + wpList.children.length);
+    const row = document.createElement('div');
+    row.className = 'wp-row flex items-center gap-2 p-2 border border-line bg-ink/40';
+    row.dataset.type = type;
+    const markerColor = type === 'must' ? 'text-rust' : type === 'pass' ? 'text-khaki' : 'text-alert';
+    row.innerHTML = `
+      <span class="wp-marker display text-lg w-5 text-center leading-none ${markerColor}">${letter}</span>
+      <input class="flex-1 bg-transparent text-snow text-sm focus:outline-none" placeholder="例如：雅安碧峰峡、折多山垭口" value="${name}" />
+      <div class="flex border border-line">
+        <button data-wp-type="must" data-active="${type === 'must'}" class="wp-type px-1.5 py-1 text-[9px] head tracking-widest">必过</button>
+        <button data-wp-type="pass" data-active="${type === 'pass'}" class="wp-type px-1.5 py-1 text-[9px] head tracking-widest">可过</button>
+        <button data-wp-type="avoid" data-active="${type === 'avoid'}" class="wp-type px-1.5 py-1 text-[9px] head tracking-widest">避让</button>
+      </div>
+      <button class="wp-del text-ash hover:text-alert text-lg leading-none px-1 transition" title="删除">×</button>
+    `;
+    wpList.appendChild(row);
+
+    // type 切换
+    row.querySelectorAll('.wp-type').forEach(b => {
+      b.addEventListener('click', () => {
+        const t = b.dataset.wpType;
+        row.dataset.type = t;
+        row.querySelectorAll('.wp-type').forEach(x => x.dataset.active = 'false');
+        b.dataset.active = 'true';
+        const marker = row.querySelector('.wp-marker');
+        marker.classList.remove('text-rust', 'text-khaki', 'text-alert');
+        marker.classList.add(t === 'must' ? 'text-rust' : t === 'pass' ? 'text-khaki' : 'text-alert');
+      });
+    });
+
+    // 删除
+    row.querySelector('.wp-del').addEventListener('click', () => {
+      row.remove();
+      // 重新编号
+      wpList.querySelectorAll('.wp-row').forEach((r, i) => {
+        r.querySelector('.wp-marker').textContent = String.fromCharCode(65 + i);
+      });
+      renderWpAdd();
+    });
+
+    renderWpAdd();
+  }
+
+  wpAdd.addEventListener('click', () => addWaypoint());
+
+  // 默认塞 2 个示例，演示效果
+  addWaypoint('雅安碧峰峡', 'must');
+  addWaypoint('折多山垭口', 'pass');
+
+  // ===== 沿途推荐景点 状态切换 =====
+  const poiStatAdd = document.getElementById('poi-stat-add');
+  const poiStatAvoid = document.getElementById('poi-stat-avoid');
+  const poiReplan = document.getElementById('poi-replan');
+  const poiReset = document.getElementById('poi-reset');
+
+  function renderPoiStats() {
+    const cards = document.querySelectorAll('.poi-card');
+    let a = 0, v = 0;
+    cards.forEach(c => {
+      if (c.dataset.state === 'add') a++;
+      else if (c.dataset.state === 'avoid') v++;
+    });
+    poiStatAdd.textContent = a;
+    poiStatAvoid.textContent = v;
+    // 重新规划按钮在有选择时高亮
+    if (a + v > 0) {
+      poiReplan.classList.add('bg-rust', 'text-ink');
+      poiReplan.classList.remove('text-rust');
+    } else {
+      poiReplan.classList.remove('bg-rust', 'text-ink');
+      poiReplan.classList.add('text-rust');
+    }
+  }
+
+  document.querySelectorAll('.poi-card').forEach(card => {
+    card.querySelectorAll('[data-poi-action]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const action = btn.dataset.poiAction;
+        const cur = card.dataset.state;
+        // 互斥：再点同一 action 取消
+        const next = cur === action ? 'default' : action;
+        card.dataset.state = next;
+        // 状态标签文字
+        const stateLabel = card.querySelector('.poi-state');
+        if (next === 'add') stateLabel.textContent = '已选';
+        else if (next === 'avoid') stateLabel.textContent = '避开';
+        else stateLabel.textContent = '可选';
+        renderPoiStats();
+      });
+    });
+  });
+
+  poiReset.addEventListener('click', () => {
+    document.querySelectorAll('.poi-card').forEach(c => {
+      c.dataset.state = 'default';
+      c.querySelector('.poi-state').textContent = '可选';
+    });
+    renderPoiStats();
+  });
+
+  poiReplan.addEventListener('click', () => {
+    const a = poiStatAdd.textContent, v = poiStatAvoid.textContent;
+    if (a + v == 0) return;
+    // 模拟"重新规划"反馈：8 天 timeline 卡片闪一下
+    document.querySelectorAll('#screen-plan [data-day]').forEach((d, i) => {
+      setTimeout(() => {
+        d.style.transition = 'box-shadow 0.3s';
+        d.style.boxShadow = '0 0 0 2px #f97316';
+        setTimeout(() => { d.style.boxShadow = ''; }, 600);
+      }, i * 80);
+    });
+  });
+
+  renderPoiStats();
 </script>
 
 </body>
