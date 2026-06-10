@@ -1,0 +1,1456 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+<title>OFFROAD PLANNER · 自驾越野路线规划 · 原型</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Oswald:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;700;900&family=Noto+Serif+SC:wght@400;700;900&display=swap"
+  rel="stylesheet"
+/>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          ink: '#0a0a0a',
+          surface: '#141414',
+          card: '#1a1a1a',
+          line: '#2a2a2a',
+          faint: '#3a3a3a',
+          khaki: '#c8b48a',
+          sand: '#8a7d5a',
+          rust: '#f97316',
+          warn: '#fbbf24',
+          topo: '#84cc16',
+          alert: '#ef4444',
+          snow: '#e8e2d5',
+          ash: '#a3a3a3',
+        },
+        fontFamily: {
+          display: ['"Bebas Neue"', '"Oswald"', 'system-ui', 'sans-serif'],
+          head: ['"Oswald"', 'system-ui', 'sans-serif'],
+          mono: ['"IBM Plex Mono"', 'ui-monospace', 'monospace'],
+          sans: ['"Noto Sans SC"', 'system-ui', 'sans-serif'],
+          serif: ['"Noto Serif SC"', 'Georgia', 'serif'],
+        },
+      },
+    },
+  };
+</script>
+<style>
+  body { font-family: 'Noto Sans SC', system-ui, sans-serif; background: #0a0a0a; color: #e8e2d5; }
+  .display { font-family: 'Bebas Neue', 'Oswald', sans-serif; letter-spacing: 0.02em; }
+  .head { font-family: 'Oswald', sans-serif; letter-spacing: 0.04em; }
+  .mono { font-family: 'IBM Plex Mono', monospace; }
+  .serif { font-family: 'Noto Serif SC', serif; }
+
+  /* 等高线背景纹理 */
+  .topo-bg {
+    background-color: #0a0a0a;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 800'><g fill='none' stroke='%23c8b48a' stroke-width='0.6' stroke-opacity='0.06'><path d='M0,160 Q200,100 400,160 T800,160'/><path d='M0,200 Q200,140 400,200 T800,200'/><path d='M0,240 Q200,180 400,240 T800,240'/><path d='M0,300 Q200,240 400,300 T800,300'/><path d='M0,360 Q200,300 400,360 T800,360'/><path d='M0,420 Q200,360 400,420 T800,420'/><path d='M0,500 Q200,440 400,500 T800,500'/><path d='M0,580 Q200,520 400,580 T800,580'/><path d='M0,660 Q200,600 400,660 T800,660'/><path d='M0,720 Q200,660 400,720 T800,720'/></g></svg>");
+    background-size: 800px 800px;
+  }
+
+  /* 仪表数据滚动 */
+  @keyframes blink-soft { 0%, 100% { opacity: 1 } 50% { opacity: 0.55 } }
+  .blink-soft { animation: blink-soft 1.6s ease-in-out infinite; }
+
+  @keyframes pulse-radar {
+    0% { transform: scale(0.7); opacity: 0.9; }
+    100% { transform: scale(2.4); opacity: 0; }
+  }
+  .radar-pulse { animation: pulse-radar 1.8s ease-out infinite; }
+
+  /* 扫描线 */
+  @keyframes scan {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(100%); }
+  }
+  .scan-line {
+    position: absolute; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, #f97316 50%, transparent);
+    opacity: 0.5; animation: scan 4s linear infinite;
+  }
+
+  /* 数字字距宽 */
+  .num-wide { font-variant-numeric: tabular-nums; letter-spacing: 0.05em; }
+
+  /* 角标十字准星 */
+  .corner-target::before, .corner-target::after,
+  .corner-target > .ct-tl, .corner-target > .ct-tr, .corner-target > .ct-bl, .corner-target > .ct-br {
+    content: ''; position: absolute; width: 8px; height: 8px;
+    border-color: #c8b48a; border-style: solid; border-width: 0;
+  }
+  .corner-target { position: relative; }
+  .corner-target .ct-tl { top: -1px; left: -1px; border-top-width: 1px; border-left-width: 1px; }
+  .corner-target .ct-tr { top: -1px; right: -1px; border-top-width: 1px; border-right-width: 1px; }
+  .corner-target .ct-bl { bottom: -1px; left: -1px; border-bottom-width: 1px; border-left-width: 1px; }
+  .corner-target .ct-br { bottom: -1px; right: -1px; border-bottom-width: 1px; border-right-width: 1px; }
+
+  /* 进度条 */
+  .bar-track { background: #2a2a2a; position: relative; height: 4px; }
+  .bar-fill { background: linear-gradient(90deg, #f97316, #fbbf24); height: 100%; }
+  .bar-mark { position: absolute; top: -2px; width: 1px; height: 8px; background: #c8b48a; }
+
+  /* 隐藏滚动条 */
+  .no-bar::-webkit-scrollbar { display: none; }
+  .no-bar { scrollbar-width: none; }
+
+  /* 选中态 */
+  .vehicle-pill[data-active="true"] { background: #f97316; color: #0a0a0a; border-color: #f97316; }
+  .month-cell[data-active="true"] { background: #f97316; color: #0a0a0a; border-color: #f97316; }
+
+  /* screen 切换 */
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  /* 印记纹理 */
+  .noise::after {
+    content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0.04;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/></filter><rect width='200' height='200' filter='url(%23n)' opacity='0.5'/></svg>");
+  }
+
+  /* 引导线 */
+  .dash { background-image: linear-gradient(90deg, #c8b48a 50%, transparent 50%); background-size: 6px 1px; background-repeat: repeat-x; }
+
+  /* 照片地图点动画 */
+  @keyframes pin-pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.4); }
+  }
+  .pin-active { animation: pin-pulse 1.2s ease-in-out infinite; }
+
+  /* 照片轮播淡入 */
+  .fade-in { animation: fade 0.5s ease-out; }
+  @keyframes fade { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: translateY(0) } }
+</style>
+</head>
+<body class="topo-bg min-h-screen">
+
+<!-- ============ 顶部警示横幅 ============ -->
+<div class="bg-warn text-ink text-[11px] mono font-medium py-1.5 text-center border-b border-warn/40 tracking-widest">
+  ▲ PROTOTYPE · 所有数据均为示例 · 未接入真实 API · 设计草案 V0.1
+</div>
+
+<!-- ============ 仪表盘状态条 ============ -->
+<div class="border-b border-line bg-ink/80 backdrop-blur sticky top-0 z-50">
+  <div class="max-w-[1400px] mx-auto px-6 py-2 flex items-center justify-between text-[10px] mono text-ash">
+    <div class="flex items-center gap-5">
+      <span class="flex items-center gap-1.5">
+        <span class="w-1.5 h-1.5 rounded-full bg-topo blink-soft"></span>
+        GPS LOCK · 30.6595°N 104.0657°E
+      </span>
+      <span class="hidden md:inline">ALT 512m</span>
+      <span class="hidden md:inline">EXT 24°C</span>
+      <span class="hidden lg:inline">BARO 1014hPa</span>
+    </div>
+    <div class="flex items-center gap-5">
+      <span class="hidden sm:inline">TRIP 8D</span>
+      <span class="hidden sm:inline">FUEL 78%</span>
+      <span class="text-rust">● REC</span>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 顶部导航 ============ -->
+<nav class="border-b border-line bg-ink/95 backdrop-blur sticky top-[29px] z-40">
+  <div class="max-w-[1400px] mx-auto px-6 flex items-center justify-between">
+    <div class="flex items-center gap-3 py-4">
+      <div class="w-9 h-9 border border-rust flex items-center justify-center rotate-45">
+        <div class="w-3 h-3 bg-rust -rotate-45"></div>
+      </div>
+      <div class="leading-none">
+        <div class="display text-2xl text-snow">OFFROAD</div>
+        <div class="head text-[10px] text-rust tracking-[0.3em] -mt-0.5">PLANNER · 自驾越野路线</div>
+      </div>
+    </div>
+    <div class="flex items-center gap-1 text-[12px] head tracking-widest">
+      <button data-go="home" class="nav-btn px-3 py-2 text-ash hover:text-snow">01 / 起点</button>
+      <button data-go="plan" class="nav-btn px-3 py-2 text-ash hover:text-snow">02 / 规划</button>
+      <button data-go="checkin" class="nav-btn px-3 py-2 text-ash hover:text-snow">03 / 打卡</button>
+      <button data-go="journal" class="nav-btn px-3 py-2 text-ash hover:text-snow">04 / 游记</button>
+      <button data-go="routes" class="nav-btn px-3 py-2 text-ash hover:text-snow">05 / 路线库</button>
+    </div>
+    <div class="flex items-center gap-3">
+      <div class="hidden md:flex items-center gap-2 text-[10px] mono text-ash">
+        <span>草哥</span>
+        <div class="w-7 h-7 border border-khaki flex items-center justify-center text-khaki">C</div>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<!-- =================================================== -->
+<!-- ============== SCREEN 1: 首页 / 起点 ============== -->
+<!-- =================================================== -->
+<section id="screen-home" class="screen active">
+  <div class="max-w-[1400px] mx-auto px-6 py-10">
+
+    <!-- HERO -->
+    <div class="grid grid-cols-12 gap-6 mb-12">
+      <div class="col-span-12 lg:col-span-7">
+        <div class="text-[10px] mono text-rust mb-4 tracking-[0.3em]">▸ 2026.06.10 · 川西大环线输入中</div>
+        <h1 class="display text-[88px] leading-[0.85] text-snow">
+          PLAN<br/>
+          <span class="text-rust">YOUR</span><br/>
+          OFFROAD<br/>
+          ROUTE.
+        </h1>
+        <p class="serif text-lg text-ash mt-6 max-w-xl leading-relaxed">
+          告诉 AI 起点、终点、天数和月份。<br/>
+          它会替你翻遍攻略、画好每日行程、列出避坑提示。<br/>
+          出发时打卡，回来时游记自动写完。
+        </p>
+        <div class="flex items-center gap-3 mt-8 text-[11px] mono text-ash">
+          <span class="text-topo">●</span>
+          <span>本季度已为 14 位越野车主规划 47 条路线</span>
+        </div>
+      </div>
+
+      <div class="col-span-12 lg:col-span-5">
+        <!-- 输入面板 -->
+        <div class="corner-target border border-line bg-card/80 backdrop-blur p-6 relative">
+          <span class="ct-tl"></span><span class="ct-tr"></span><span class="ct-bl"></span><span class="ct-br"></span>
+          <div class="text-[10px] mono text-rust mb-4 tracking-[0.3em]">▸ TRIP PARAMETERS</div>
+
+          <div class="grid grid-cols-2 gap-4 mb-4">
+            <div>
+              <label class="text-[10px] mono text-ash block mb-1.5 tracking-widest">起点 / FROM</label>
+              <input value="成都 · 武侯祠" class="w-full bg-ink border border-line px-3 py-2.5 text-snow text-sm focus:border-rust focus:outline-none" />
+            </div>
+            <div>
+              <label class="text-[10px] mono text-ash block mb-1.5 tracking-widest">终点 / TO</label>
+              <input value="四姑娘山 · 长坪沟" class="w-full bg-ink border border-line px-3 py-2.5 text-snow text-sm focus:border-rust focus:outline-none" />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4 mb-4">
+            <div>
+              <label class="text-[10px] mono text-ash block mb-1.5 tracking-widest">天数 / DAYS</label>
+              <div class="flex items-center bg-ink border border-line">
+                <button class="px-3 py-2.5 text-rust hover:bg-rust hover:text-ink">−</button>
+                <input type="text" value="8" class="flex-1 bg-transparent text-center text-snow text-lg mono num-wide focus:outline-none" />
+                <button class="px-3 py-2.5 text-rust hover:bg-rust hover:text-ink">+</button>
+              </div>
+            </div>
+            <div>
+              <label class="text-[10px] mono text-ash block mb-1.5 tracking-widest">车型 / VEHICLE</label>
+              <div class="grid grid-cols-3 gap-1">
+                <button class="vehicle-pill text-[10px] head border border-line py-2.5" data-active="false">轿车</button>
+                <button class="vehicle-pill text-[10px] head border border-line py-2.5" data-active="false">SUV</button>
+                <button class="vehicle-pill text-[10px] head border border-line py-2.5" data-active="true">硬派</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="mb-5">
+            <label class="text-[10px] mono text-ash block mb-1.5 tracking-widest">月份 / MONTH · 7月雨季高发</label>
+            <div class="grid grid-cols-12 gap-1">
+              <!-- 12 个月份格 -->
+              <button class="month-cell text-[10px] head border border-line py-1.5" data-active="false">1</button>
+              <button class="month-cell text-[10px] head border border-line py-1.5" data-active="false">2</button>
+              <button class="month-cell text-[10px] head border border-line py-1.5" data-active="false">3</button>
+              <button class="month-cell text-[10px] head border border-line py-1.5" data-active="false">4</button>
+              <button class="month-cell text-[10px] head border border-line py-1.5" data-active="false">5</button>
+              <button class="month-cell text-[10px] head border border-line py-1.5" data-active="false">6</button>
+              <button class="month-cell text-[10px] head border border-line py-1.5" data-active="true">7</button>
+              <button class="month-cell text-[10px] head border border-line py-1.5" data-active="false">8</button>
+              <button class="month-cell text-[10px] head border border-line py-1.5" data-active="false">9</button>
+              <button class="month-cell text-[10px] head border border-line py-1.5" data-active="false">10</button>
+              <button class="month-cell text-[10px] head border border-line py-1.5" data-active="false">11</button>
+              <button class="month-cell text-[10px] head border border-line py-1.5" data-active="false">12</button>
+            </div>
+          </div>
+
+          <button data-go="plan" class="w-full bg-rust text-ink head tracking-[0.3em] py-3.5 hover:bg-warn transition group flex items-center justify-center gap-3">
+            <span>RECON ROUTE</span>
+            <span class="mono text-base">→</span>
+          </button>
+          <div class="text-[10px] mono text-ash mt-3 text-center">AI 将调用搜索 API 整理 7 月份该路线的攻略与避坑</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 数据条 -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-px bg-line mb-12">
+      <div class="bg-ink p-5">
+        <div class="text-[10px] mono text-ash tracking-widest">本月新增路线</div>
+        <div class="display text-4xl text-snow num-wide mt-1">47</div>
+        <div class="bar-track mt-3"><div class="bar-fill" style="width:72%"></div></div>
+      </div>
+      <div class="bg-ink p-5">
+        <div class="text-[10px] mono text-ash tracking-widest">平均规划耗时</div>
+        <div class="display text-4xl text-snow num-wide mt-1">12<span class="text-base text-ash">s</span></div>
+        <div class="bar-track mt-3"><div class="bar-fill" style="width:35%"></div></div>
+      </div>
+      <div class="bg-ink p-5">
+        <div class="text-[10px] mono text-ash tracking-widest">活跃打卡用户</div>
+        <div class="display text-4xl text-snow num-wide mt-1">14</div>
+        <div class="bar-track mt-3"><div class="bar-fill" style="width:48%"></div></div>
+      </div>
+      <div class="bg-ink p-5">
+        <div class="text-[10px] mono text-ash tracking-widest">AI 游记生成</div>
+        <div class="display text-4xl text-snow num-wide mt-1">128</div>
+        <div class="bar-track mt-3"><div class="bar-fill" style="width:84%"></div></div>
+      </div>
+    </div>
+
+    <!-- 经典路线推荐 -->
+    <div class="mb-6 flex items-baseline justify-between border-b border-line pb-3">
+      <h2 class="display text-3xl text-snow">▸ CLASSIC ROUTES <span class="text-rust">04</span></h2>
+      <div class="text-[10px] mono text-ash">点击载入 → 直接开始规划</div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <!-- 路线卡 1 川西 -->
+      <div class="corner-target border border-line bg-card overflow-hidden group cursor-pointer hover:border-rust transition" data-go="plan">
+        <span class="ct-tl"></span><span class="ct-tr"></span><span class="ct-bl"></span><span class="ct-br"></span>
+        <div class="aspect-[4/3] bg-gradient-to-br from-khaki/30 via-surface to-ink relative overflow-hidden">
+          <svg viewBox="0 0 200 150" class="absolute inset-0 w-full h-full">
+            <g fill="none" stroke="#c8b48a" stroke-width="0.4" opacity="0.5">
+              <path d="M0,40 Q50,30 100,40 T200,40"/>
+              <path d="M0,55 Q50,45 100,55 T200,55"/>
+              <path d="M0,75 Q50,65 100,75 T200,75"/>
+              <path d="M0,100 Q50,90 100,100 T200,100"/>
+              <path d="M0,125 Q50,115 100,125 T200,125"/>
+            </g>
+            <polyline points="20,130 50,90 80,70 110,50 140,40 170,55 185,80" fill="none" stroke="#f97316" stroke-width="1.5" />
+            <circle cx="80" cy="70" r="2" fill="#f97316"/>
+            <circle cx="140" cy="40" r="2" fill="#f97316"/>
+          </svg>
+          <div class="absolute top-2 left-2 bg-ink/80 border border-rust text-rust text-[9px] mono px-1.5 py-0.5">● ACTIVE</div>
+        </div>
+        <div class="p-4">
+          <div class="head text-[10px] text-rust tracking-[0.3em]">WESTERN SICHUAN</div>
+          <div class="display text-2xl text-snow mt-1">川西大环线</div>
+          <div class="flex items-center justify-between mt-3 text-[10px] mono text-ash">
+            <span>1280 KM</span>
+            <span>8 DAYS</span>
+            <span class="text-warn">★ 4.8</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 路线卡 2 G219 -->
+      <div class="corner-target border border-line bg-card overflow-hidden group cursor-pointer hover:border-rust transition">
+        <span class="ct-tl"></span><span class="ct-tr"></span><span class="ct-bl"></span><span class="ct-br"></span>
+        <div class="aspect-[4/3] bg-gradient-to-br from-warn/20 via-surface to-ink relative overflow-hidden">
+          <svg viewBox="0 0 200 150" class="absolute inset-0 w-full h-full">
+            <g fill="none" stroke="#c8b48a" stroke-width="0.4" opacity="0.5">
+              <path d="M0,50 Q50,30 100,40 T200,30"/>
+              <path d="M0,80 Q50,60 100,70 T200,60"/>
+              <path d="M0,110 Q50,90 100,100 T200,90"/>
+            </g>
+            <polyline points="20,120 40,100 70,85 100,75 130,60 160,45 185,30" fill="none" stroke="#f97316" stroke-width="1.5" />
+          </svg>
+          <div class="absolute top-2 left-2 bg-ink/80 border border-warn text-warn text-[9px] mono px-1.5 py-0.5">HARD</div>
+        </div>
+        <div class="p-4">
+          <div class="head text-[10px] text-rust tracking-[0.3em]">XINJIANG-TIBET</div>
+          <div class="display text-2xl text-snow mt-1">G219 新藏线</div>
+          <div class="flex items-center justify-between mt-3 text-[10px] mono text-ash">
+            <span>2140 KM</span>
+            <span>12 DAYS</span>
+            <span class="text-alert">★ 4.9</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 路线卡 3 独库 -->
+      <div class="corner-target border border-line bg-card overflow-hidden group cursor-pointer hover:border-rust transition">
+        <span class="ct-tl"></span><span class="ct-tr"></span><span class="ct-bl"></span><span class="ct-br"></span>
+        <div class="aspect-[4/3] bg-gradient-to-br from-topo/20 via-surface to-ink relative overflow-hidden">
+          <svg viewBox="0 0 200 150" class="absolute inset-0 w-full h-full">
+            <g fill="none" stroke="#c8b48a" stroke-width="0.4" opacity="0.5">
+              <path d="M0,60 Q60,40 120,60 T200,60"/>
+              <path d="M0,90 Q60,70 120,90 T200,90"/>
+            </g>
+            <polyline points="20,110 60,80 100,65 140,55 180,45" fill="none" stroke="#f97316" stroke-width="1.5" />
+          </svg>
+          <div class="absolute top-2 left-2 bg-ink/80 border border-topo text-topo text-[9px] mono px-1.5 py-0.5">SCENIC</div>
+        </div>
+        <div class="p-4">
+          <div class="head text-[10px] text-rust tracking-[0.3em]">DUKU HIGHWAY</div>
+          <div class="display text-2xl text-snow mt-1">独库公路</div>
+          <div class="flex items-center justify-between mt-3 text-[10px] mono text-ash">
+            <span>562 KM</span>
+            <span>4 DAYS</span>
+            <span class="text-warn">★ 4.7</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 路线卡 4 坝上 -->
+      <div class="corner-target border border-line bg-card overflow-hidden group cursor-pointer hover:border-rust transition">
+        <span class="ct-tl"></span><span class="ct-tr"></span><span class="ct-bl"></span><span class="ct-br"></span>
+        <div class="aspect-[4/3] bg-gradient-to-br from-khaki/20 via-surface to-ink relative overflow-hidden">
+          <svg viewBox="0 0 200 150" class="absolute inset-0 w-full h-full">
+            <g fill="none" stroke="#c8b48a" stroke-width="0.4" opacity="0.5">
+              <path d="M0,70 Q60,50 120,70 T200,70"/>
+              <path d="M0,100 Q60,80 120,100 T200,100"/>
+            </g>
+            <polyline points="20,100 50,80 80,90 110,75 140,85 170,70 185,90" fill="none" stroke="#f97316" stroke-width="1.5" />
+          </svg>
+          <div class="absolute top-2 left-2 bg-ink/80 border border-khaki text-khaki text-[9px] mono px-1.5 py-0.5">EASY</div>
+        </div>
+        <div class="p-4">
+          <div class="head text-[10px] text-rust tracking-[0.3em]">BASHANG PRAIRIE</div>
+          <div class="display text-2xl text-snow mt-1">坝上草原</div>
+          <div class="flex items-center justify-between mt-3 text-[10px] mono text-ash">
+            <span>680 KM</span>
+            <span>3 DAYS</span>
+            <span class="text-topo">★ 4.3</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 底部三栏 -->
+    <div class="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6 border-t border-line pt-8">
+      <div>
+        <div class="head text-rust text-[10px] tracking-[0.3em] mb-2">▸ 数据来源</div>
+        <p class="text-ash text-sm leading-relaxed">AI 通过搜索 API 整理公开攻略，按月、按车型提取要点。原始链接展示，不复制原文，避免版权风险。</p>
+      </div>
+      <div>
+        <div class="head text-rust text-[10px] tracking-[0.3em] mb-2">▸ 路况与风险</div>
+        <p class="text-ash text-sm leading-relaxed">我们不做实时路况预测（公开 API 覆盖不到越野路线）。改用「月份 + 海拔 + 路线类型」的规则化风险提示。</p>
+      </div>
+      <div>
+        <div class="head text-rust text-[10px] tracking-[0.3em] mb-2">▸ 照片与定位</div>
+        <p class="text-ash text-sm leading-relaxed">手机原图有 EXIF GPS，微信或截图会丢失。出发前请提醒同行者：用原图上传，不要用社交软件传图。</p>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- =================================================== -->
+<!-- =========== SCREEN 2: 规划结果 =========== -->
+<!-- =================================================== -->
+<section id="screen-plan" class="screen">
+  <div class="max-w-[1400px] mx-auto px-6 py-8">
+
+    <!-- 顶部路线标题 + 风险条 -->
+    <div class="mb-6">
+      <div class="flex items-end justify-between mb-3">
+        <div>
+          <div class="text-[10px] mono text-rust tracking-[0.3em]">▸ ROUTE GENERATED · 2026.06.10 14:32</div>
+          <h1 class="display text-5xl text-snow mt-1">川西大环线 <span class="text-rust">· 8D</span></h1>
+          <div class="mono text-ash text-sm mt-1">成都 → 雅安 → 康定 → 新都桥 → 塔公 → 八美 → 丹巴 → 四姑娘山 → 都江堰 → 成都</div>
+        </div>
+        <div class="text-right">
+          <div class="text-[10px] mono text-ash tracking-widest">总里程 / TOTAL</div>
+          <div class="display text-4xl text-snow num-wide">1280<span class="text-base text-ash">KM</span></div>
+        </div>
+      </div>
+
+      <!-- AI 风险提示 -->
+      <div class="border border-warn/50 bg-warn/5 p-4 corner-target relative">
+        <span class="ct-tl"></span><span class="ct-tr"></span><span class="ct-bl"></span><span class="ct-br"></span>
+        <div class="flex items-center gap-2 mb-2">
+          <span class="w-2 h-2 bg-warn blink-soft"></span>
+          <span class="head text-warn text-xs tracking-widest">AI 风险摘要 · 7 月份这条线路</span>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+          <div class="flex gap-2">
+            <span class="text-warn mono">01</span>
+            <span class="text-snow">折多山 7 月仍有团雾，能见度低于 50m 频繁发生在 14:00-18:00</span>
+          </div>
+          <div class="flex gap-2">
+            <span class="text-warn mono">02</span>
+            <span class="text-snow">新都桥-塔公段部分土路雨后塌方，轿车不可通过，硬派越野也需绕行</span>
+          </div>
+          <div class="flex gap-2">
+            <span class="text-warn mono">03</span>
+            <span class="text-snow">丹巴-四姑娘山路窄弯多，夜间禁行；务必 17:00 前抵达住宿点</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 主区：左 timeline + 右 map -->
+    <div class="grid grid-cols-12 gap-6">
+
+      <!-- 左侧：每日行程 -->
+      <div class="col-span-12 lg:col-span-5 space-y-3 max-h-[800px] overflow-y-auto no-bar pr-1">
+        <div class="head text-[10px] text-rust tracking-[0.3em] mb-2">▸ 每日行程 · 8 DAYS</div>
+
+        <!-- DAY 模板 -->
+        <div class="corner-target border border-line bg-card p-4 hover:border-rust transition cursor-pointer group" data-day="1">
+          <span class="ct-tl"></span><span class="ct-tr"></span><span class="ct-bl"></span><span class="ct-br"></span>
+          <div class="flex items-center justify-between mb-2">
+            <div class="display text-3xl text-snow">DAY <span class="text-rust">01</span></div>
+            <div class="text-right">
+              <div class="mono text-xs text-snow num-wide">380 KM</div>
+              <div class="mono text-[10px] text-ash">约 6h 30m</div>
+            </div>
+          </div>
+          <div class="text-snow text-sm font-medium mb-1">成都 → 雅安 → 康定</div>
+          <div class="text-ash text-xs mb-2">雅安碧峰峡 · 泸定桥 · 折多山观景台</div>
+          <div class="text-[10px] mono text-warn border-l-2 border-warn pl-2 mt-2">⚠ 成都-雅安段早高峰拥堵，建议 06:30 前出发</div>
+          <div class="flex items-center justify-between mt-2 text-[10px] mono text-ash">
+            <span>夜宿 / STAY</span>
+            <span class="text-snow">康定 · 摄影主题酒店</span>
+          </div>
+          <div class="bar-track mt-2"><div class="bar-fill" style="width:12.5%"></div><div class="bar-mark" style="left:12.5%"></div></div>
+        </div>
+
+        <div class="corner-target border border-line bg-card p-4 hover:border-rust transition cursor-pointer" data-day="2">
+          <span class="ct-tl"></span><span class="ct-tr"></span><span class="ct-bl"></span><span class="ct-br"></span>
+          <div class="flex items-center justify-between mb-2">
+            <div class="display text-3xl text-snow">DAY <span class="text-rust">02</span></div>
+            <div class="text-right">
+              <div class="mono text-xs text-snow num-wide">100 KM</div>
+              <div class="mono text-[10px] text-ash">约 3h</div>
+            </div>
+          </div>
+          <div class="text-snow text-sm font-medium mb-1">康定 → 折多山 → 新都桥</div>
+          <div class="text-ash text-xs mb-2">折多山垭口 (4298m) · 新都桥摄影天堂</div>
+          <div class="text-[10px] mono text-alert border-l-2 border-alert pl-2 mt-2">⚠ 高反预警，垭口停留 ≤ 30 分钟，备氧气瓶</div>
+          <div class="flex items-center justify-between mt-2 text-[10px] mono text-ash">
+            <span>夜宿 / STAY</span>
+            <span class="text-snow">新都桥 · 藏式民居</span>
+          </div>
+          <div class="bar-track mt-2"><div class="bar-fill" style="width:25%"></div><div class="bar-mark" style="left:25%"></div></div>
+        </div>
+
+        <div class="corner-target border border-line bg-card p-4 hover:border-rust transition cursor-pointer" data-day="3">
+          <span class="ct-tl"></span><span class="ct-tr"></span><span class="ct-bl"></span><span class="ct-br"></span>
+          <div class="flex items-center justify-between mb-2">
+            <div class="display text-3xl text-snow">DAY <span class="text-rust">03</span></div>
+            <div class="text-right">
+              <div class="mono text-xs text-snow num-wide">110 KM</div>
+              <div class="mono text-[10px] text-ash">约 2h 30m</div>
+            </div>
+          </div>
+          <div class="text-snow text-sm font-medium mb-1">新都桥 → 塔公草原 → 八美</div>
+          <div class="text-ash text-xs mb-2">塔公寺 · 雅拉雪山观景台 · 八美石林</div>
+          <div class="text-[10px] mono text-warn border-l-2 border-warn pl-2 mt-2">⚠ 塔公-八美段雨后土路塌方，出发前查 318 实时路况</div>
+          <div class="flex items-center justify-between mt-2 text-[10px] mono text-ash">
+            <span>夜宿 / STAY</span>
+            <span class="text-snow">八美 · 民宿</span>
+          </div>
+          <div class="bar-track mt-2"><div class="bar-fill" style="width:37.5%"></div><div class="bar-mark" style="left:37.5%"></div></div>
+        </div>
+
+        <div class="corner-target border border-line bg-card p-4 hover:border-rust transition cursor-pointer" data-day="4">
+          <span class="ct-tl"></span><span class="ct-tr"></span><span class="ct-bl"></span><span class="ct-br"></span>
+          <div class="flex items-center justify-between mb-2">
+            <div class="display text-3xl text-snow">DAY <span class="text-rust">04</span></div>
+            <div class="text-right">
+              <div class="mono text-xs text-snow num-wide">80 KM</div>
+              <div class="mono text-[10px] text-ash">约 2h</div>
+            </div>
+          </div>
+          <div class="text-snow text-sm font-medium mb-1">八美 → 丹巴藏寨</div>
+          <div class="text-ash text-xs mb-2">甲居藏寨 · 梭坡碉楼</div>
+          <div class="text-[10px] mono text-warn border-l-2 border-warn pl-2 mt-2">⚠ 甲居藏寨山路窄，会车困难，慢行</div>
+          <div class="flex items-center justify-between mt-2 text-[10px] mono text-ash">
+            <span>夜宿 / STAY</span>
+            <span class="text-snow">丹巴 · 藏家客栈</span>
+          </div>
+          <div class="bar-track mt-2"><div class="bar-fill" style="width:50%"></div><div class="bar-mark" style="left:50%"></div></div>
+        </div>
+
+        <div class="corner-target border border-line bg-card p-4 hover:border-rust transition cursor-pointer" data-day="5">
+          <span class="ct-tl"></span><span class="ct-tr"></span><span class="ct-bl"></span><span class="ct-br"></span>
+          <div class="flex items-center justify-between mb-2">
+            <div class="display text-3xl text-snow">DAY <span class="text-rust">05</span></div>
+            <div class="text-right">
+              <div class="mono text-xs text-snow num-wide">200 KM</div>
+              <div class="mono text-[10px] text-ash">约 5h</div>
+            </div>
+          </div>
+          <div class="text-snow text-sm font-medium mb-1">丹巴 → 四姑娘山 · 双桥沟</div>
+          <div class="text-ash text-xs mb-2">双桥沟 · 猫鼻梁观景台 · 长坪沟入口</div>
+          <div class="text-[10px] mono text-alert border-l-2 border-alert pl-2 mt-2">⚠ 巴郎山路段 17:00 后禁行，必须中午前过垭口</div>
+          <div class="flex items-center justify-between mt-2 text-[10px] mono text-ash">
+            <span>夜宿 / STAY</span>
+            <span class="text-snow">四姑娘山镇 · 客栈</span>
+          </div>
+          <div class="bar-track mt-2"><div class="bar-fill" style="width:62.5%"></div><div class="bar-mark" style="left:62.5%"></div></div>
+        </div>
+
+        <div class="corner-target border border-line bg-card p-4 hover:border-rust transition cursor-pointer" data-day="6">
+          <span class="ct-tl"></span><span class="ct-tr"></span><span class="ct-bl"></span><span class="ct-br"></span>
+          <div class="flex items-center justify-between mb-2">
+            <div class="display text-3xl text-snow">DAY <span class="text-rust">06</span></div>
+            <div class="text-right">
+              <div class="mono text-xs text-snow num-wide">20 KM</div>
+              <div class="mono text-[10px] text-ash">停留日</div>
+            </div>
+          </div>
+          <div class="text-snow text-sm font-medium mb-1">四姑娘山 · 全天徒步</div>
+          <div class="text-ash text-xs mb-2">长坪沟徒步 · 海子沟骑马</div>
+          <div class="text-[10px] mono text-warn border-l-2 border-warn pl-2 mt-2">⚠ 紫外线极强，SPF 50+ 必备</div>
+          <div class="flex items-center justify-between mt-2 text-[10px] mono text-ash">
+            <span>夜宿 / STAY</span>
+            <span class="text-snow">四姑娘山镇 · 客栈</span>
+          </div>
+          <div class="bar-track mt-2"><div class="bar-fill" style="width:75%"></div><div class="bar-mark" style="left:75%"></div></div>
+        </div>
+
+        <div class="corner-target border border-line bg-card p-4 hover:border-rust transition cursor-pointer" data-day="7">
+          <span class="ct-tl"></span><span class="ct-tr"></span><span class="ct-bl"></span><span class="ct-br"></span>
+          <div class="flex items-center justify-between mb-2">
+            <div class="display text-3xl text-snow">DAY <span class="text-rust">07</span></div>
+            <div class="text-right">
+              <div class="mono text-xs text-snow num-wide">220 KM</div>
+              <div class="mono text-[10px] text-ash">约 5h 30m</div>
+            </div>
+          </div>
+          <div class="text-snow text-sm font-medium mb-1">四姑娘山 → 都江堰</div>
+          <div class="text-ash text-xs mb-2">卧龙大熊猫基地 · 都江堰南桥</div>
+          <div class="text-[10px] mono text-warn border-l-2 border-warn pl-2 mt-2">⚠ 卧龙路段落石高发区，雨季慎行</div>
+          <div class="flex items-center justify-between mt-2 text-[10px] mono text-ash">
+            <span>夜宿 / STAY</span>
+            <span class="text-snow">都江堰 · 古城客栈</span>
+          </div>
+          <div class="bar-track mt-2"><div class="bar-fill" style="width:87.5%"></div><div class="bar-mark" style="left:87.5%"></div></div>
+        </div>
+
+        <div class="corner-target border border-line bg-card p-4 hover:border-rust transition cursor-pointer" data-day="8">
+          <span class="ct-tl"></span><span class="ct-tr"></span><span class="ct-bl"></span><span class="ct-br"></span>
+          <div class="flex items-center justify-between mb-2">
+            <div class="display text-3xl text-snow">DAY <span class="text-rust">08</span></div>
+            <div class="text-right">
+              <div class="mono text-xs text-snow num-wide">60 KM</div>
+              <div class="mono text-[10px] text-ash">约 1h 30m</div>
+            </div>
+          </div>
+          <div class="text-snow text-sm font-medium mb-1">都江堰 → 成都</div>
+          <div class="text-ash text-xs mb-2">都江堰水利工程 · 返程</div>
+          <div class="text-[10px] mono text-warn border-l-2 border-warn pl-2 mt-2">⚠ 周末返程成灌高速拥堵，备零食和油料</div>
+          <div class="flex items-center justify-between mt-2 text-[10px] mono text-ash">
+            <span>夜宿 / STAY</span>
+            <span class="text-snow">成都 · 回家</span>
+          </div>
+          <div class="bar-track mt-2"><div class="bar-fill" style="width:100%"></div><div class="bar-mark" style="left:100%"></div></div>
+        </div>
+      </div>
+
+      <!-- 右侧：地图 + 数据 -->
+      <div class="col-span-12 lg:col-span-7 space-y-4">
+        <div class="corner-target border border-line bg-card relative overflow-hidden">
+          <span class="ct-tl"></span><span class="ct-tr"></span><span class="ct-bl"></span><span class="ct-br"></span>
+          <div class="px-4 py-3 border-b border-line flex items-center justify-between">
+            <div class="head text-[10px] text-rust tracking-[0.3em]">▸ MAP VIEW · 高德图层</div>
+            <div class="flex items-center gap-2 text-[10px] mono text-ash">
+              <button class="px-2 py-1 border border-rust text-rust">路线</button>
+              <button class="px-2 py-1 border border-line text-ash hover:border-khaki">海拔</button>
+              <button class="px-2 py-1 border border-line text-ash hover:border-khaki">卫星</button>
+            </div>
+          </div>
+
+          <!-- 大地图 SVG -->
+          <div class="aspect-[4/3] relative bg-gradient-to-br from-surface via-card to-ink">
+            <svg viewBox="0 0 800 600" class="absolute inset-0 w-full h-full">
+              <!-- 等高线 -->
+              <g fill="none" stroke="#c8b48a" stroke-width="0.5" opacity="0.2">
+                <path d="M0,100 Q200,80 400,100 T800,100"/>
+                <path d="M0,160 Q200,140 400,160 T800,160"/>
+                <path d="M0,220 Q200,200 400,220 T800,220"/>
+                <path d="M0,280 Q200,260 400,280 T800,280"/>
+                <path d="M0,340 Q200,320 400,340 T800,340"/>
+                <path d="M0,400 Q200,380 400,400 T800,400"/>
+                <path d="M0,460 Q200,440 400,460 T800,460"/>
+                <path d="M0,520 Q200,500 400,520 T800,520"/>
+              </g>
+              <!-- 河流 -->
+              <path d="M0,250 Q200,200 400,260 T800,220" fill="none" stroke="#84cc16" stroke-width="1" opacity="0.4" stroke-dasharray="2,3"/>
+              <!-- 路线主路径 -->
+              <polyline points="120,500 200,460 280,420 360,360 440,300 540,260 620,200 700,160 760,200 720,260 640,320 540,360 440,400 340,420 240,460 140,480 80,500" fill="none" stroke="#f97316" stroke-width="2.5" stroke-linejoin="round" />
+              <!-- 路线光晕 -->
+              <polyline points="120,500 200,460 280,420 360,360 440,300 540,260 620,200 700,160 760,200 720,260 640,320 540,360 440,400 340,420 240,460 140,480 80,500" fill="none" stroke="#f97316" stroke-width="6" opacity="0.2"/>
+              <!-- 夜宿点 -->
+              <g>
+                <circle cx="120" cy="500" r="6" fill="#0a0a0a" stroke="#f97316" stroke-width="2"/>
+                <text x="130" y="495" fill="#e8e2d5" font-family="IBM Plex Mono" font-size="10">01 成都</text>
+                <circle cx="360" cy="360" r="6" fill="#0a0a0a" stroke="#f97316" stroke-width="2"/>
+                <text x="370" y="355" fill="#e8e2d5" font-family="IBM Plex Mono" font-size="10">02 康定</text>
+                <circle cx="440" cy="300" r="6" fill="#0a0a0a" stroke="#f97316" stroke-width="2"/>
+                <text x="450" y="295" fill="#e8e2d5" font-family="IBM Plex Mono" font-size="10">03 新都桥</text>
+                <circle cx="540" cy="260" r="6" fill="#0a0a0a" stroke="#f97316" stroke-width="2"/>
+                <text x="550" y="255" fill="#e8e2d5" font-family="IBM Plex Mono" font-size="10">04 八美</text>
+                <circle cx="640" cy="320" r="6" fill="#0a0a0a" stroke="#f97316" stroke-width="2"/>
+                <text x="650" y="315" fill="#e8e2d5" font-family="IBM Plex Mono" font-size="10">05 丹巴</text>
+                <circle cx="760" cy="200" r="6" fill="#0a0a0a" stroke="#fbbf24" stroke-width="2"/>
+                <text x="690" y="195" fill="#e8e2d5" font-family="IBM Plex Mono" font-size="10">06 四姑娘山 ★</text>
+                <circle cx="340" cy="420" r="6" fill="#0a0a0a" stroke="#f97316" stroke-width="2"/>
+                <text x="350" y="415" fill="#e8e2d5" font-family="IBM Plex Mono" font-size="10">07 都江堰</text>
+                <circle cx="120" cy="500" r="6" fill="#84cc16" stroke="#0a0a0a" stroke-width="2"/>
+                <text x="130" y="525" fill="#84cc16" font-family="IBM Plex Mono" font-size="10">08 成都</text>
+              </g>
+              <!-- 比例尺 -->
+              <g transform="translate(40,560)">
+                <line x1="0" y1="0" x2="100" y2="0" stroke="#c8b48a" stroke-width="1"/>
+                <line x1="0" y1="-3" x2="0" y2="3" stroke="#c8b48a" stroke-width="1"/>
+                <line x1="50" y1="-3" x2="50" y2="3" stroke="#c8b48a" stroke-width="1"/>
+                <line x1="100" y1="-3" x2="100" y2="3" stroke="#c8b48a" stroke-width="1"/>
+                <text x="0" y="20" fill="#c8b48a" font-family="IBM Plex Mono" font-size="9">0</text>
+                <text x="50" y="20" fill="#c8b48a" font-family="IBM Plex Mono" font-size="9" text-anchor="middle">50</text>
+                <text x="100" y="20" fill="#c8b48a" font-family="IBM Plex Mono" font-size="9" text-anchor="middle">100 KM</text>
+              </g>
+              <!-- 罗盘 -->
+              <g transform="translate(720,540)">
+                <circle r="24" fill="none" stroke="#c8b48a" stroke-width="0.5"/>
+                <circle r="20" fill="none" stroke="#c8b48a" stroke-width="0.3" stroke-dasharray="2,2"/>
+                <line x1="0" y1="-22" x2="0" y2="-14" stroke="#f97316" stroke-width="1.5"/>
+                <line x1="0" y1="14" x2="0" y2="22" stroke="#c8b48a" stroke-width="0.5"/>
+                <line x1="-22" y1="0" x2="-14" y2="0" stroke="#c8b48a" stroke-width="0.5"/>
+                <line x1="14" y1="0" x2="22" y2="0" stroke="#c8b48a" stroke-width="0.5"/>
+                <text x="0" y="-26" fill="#f97316" font-family="IBM Plex Mono" font-size="10" text-anchor="middle">N</text>
+              </g>
+            </svg>
+
+            <!-- 地图图例 -->
+            <div class="absolute top-3 left-3 bg-ink/80 border border-line px-2 py-1.5 text-[9px] mono text-ash">
+              <div class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-rust"></span>路线</div>
+              <div class="flex items-center gap-1.5 mt-1"><span class="w-2 h-2 rounded-full bg-warn"></span>停留日</div>
+              <div class="flex items-center gap-1.5 mt-1"><span class="w-2 h-2 rounded-full bg-topo"></span>起点/终点</div>
+            </div>
+          </div>
+
+          <!-- 海拔曲线 -->
+          <div class="border-t border-line p-4">
+            <div class="head text-[10px] text-rust tracking-[0.3em] mb-3">▸ ELEVATION PROFILE · 海拔剖面</div>
+            <svg viewBox="0 0 800 100" class="w-full h-16">
+              <defs>
+                <linearGradient id="elevGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#f97316" stop-opacity="0.4"/>
+                  <stop offset="100%" stop-color="#f97316" stop-opacity="0"/>
+                </linearGradient>
+              </defs>
+              <g stroke="#c8b48a" stroke-width="0.3" opacity="0.3">
+                <line x1="0" y1="25" x2="800" y2="25"/>
+                <line x1="0" y1="50" x2="800" y2="50"/>
+                <line x1="0" y1="75" x2="800" y2="75"/>
+              </g>
+              <path d="M0,70 L100,68 L200,50 L300,40 L400,30 L500,20 L600,15 L700,18 L800,30 L800,100 L0,100 Z" fill="url(#elevGrad)"/>
+              <path d="M0,70 L100,68 L200,50 L300,40 L400,30 L500,20 L600,15 L700,18 L800,30" fill="none" stroke="#f97316" stroke-width="1.5"/>
+              <circle cx="500" cy="20" r="3" fill="#fbbf24"/>
+              <text x="510" y="18" fill="#fbbf24" font-family="IBM Plex Mono" font-size="9">4298m 折多山</text>
+            </svg>
+            <div class="flex justify-between text-[9px] mono text-ash mt-1">
+              <span>0 KM</span><span>320</span><span>640</span><span>960</span><span>1280 KM</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 仪表数据 -->
+        <div class="grid grid-cols-4 gap-px bg-line">
+          <div class="bg-card p-4">
+            <div class="text-[9px] mono text-ash tracking-widest">最高海拔 / PEAK</div>
+            <div class="display text-2xl text-warn num-wide mt-1">4298<span class="text-xs text-ash">m</span></div>
+            <div class="text-[10px] mono text-ash mt-1">折多山垭口</div>
+          </div>
+          <div class="bg-card p-4">
+            <div class="text-[9px] mono text-ash tracking-widest">总爬升 / CLIMB</div>
+            <div class="display text-2xl text-snow num-wide mt-1">12.4<span class="text-xs text-ash">km</span></div>
+            <div class="text-[10px] mono text-ash mt-1">约 36h 累计</div>
+          </div>
+          <div class="bg-card p-4">
+            <div class="text-[9px] mono text-ash tracking-widest">预估油耗 / FUEL</div>
+            <div class="display text-2xl text-snow num-wide mt-1">98<span class="text-xs text-ash">L</span></div>
+            <div class="text-[10px] mono text-ash mt-1">¥ 880 (95#)</div>
+          </div>
+          <div class="bg-card p-4">
+            <div class="text-[9px] mono text-ash tracking-widest">难段占比 / HARD</div>
+            <div class="display text-2xl text-alert num-wide mt-1">28<span class="text-xs text-ash">%</span></div>
+            <div class="text-[10px] mono text-ash mt-1">硬派越野段</div>
+          </div>
+        </div>
+
+        <div class="flex gap-3">
+          <button class="flex-1 bg-rust text-ink head tracking-[0.3em] py-3 hover:bg-warn transition flex items-center justify-center gap-2">
+            <span>导出到高德导航</span>
+            <span>→</span>
+          </button>
+          <button class="px-5 border border-line text-snow head tracking-[0.3em] py-3 hover:border-rust transition">保存行程</button>
+          <button class="px-5 border border-line text-snow head tracking-[0.3em] py-3 hover:border-rust transition">打印 PDF</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =================================================== -->
+<!-- =========== SCREEN 3: 打卡页（手机） =========== -->
+<!-- =================================================== -->
+<section id="screen-checkin" class="screen">
+  <div class="max-w-[1400px] mx-auto px-6 py-10">
+    <div class="text-center mb-8">
+      <div class="text-[10px] mono text-rust tracking-[0.3em]">▸ ON THE ROAD · 04 / 丹巴甲居藏寨</div>
+      <h1 class="display text-5xl text-snow mt-1">CHECK <span class="text-rust">IN</span></h1>
+      <p class="text-ash text-sm mt-2">手机视角 · 移动端操作体验预览</p>
+    </div>
+
+    <!-- 手机框架 -->
+    <div class="flex justify-center">
+      <div class="w-[375px] h-[812px] bg-ink border-8 border-faint rounded-[40px] relative overflow-hidden shadow-2xl" style="box-shadow: 0 0 80px rgba(249,115,22,0.15), inset 0 0 0 1px #2a2a2a;">
+        <!-- 屏幕内 -->
+        <div class="h-full relative bg-ink overflow-hidden">
+          <!-- 状态栏 -->
+          <div class="flex items-center justify-between px-6 py-2 text-[10px] mono text-snow">
+            <span>14:32</span>
+            <div class="w-20 h-5 bg-ink border border-faint rounded-full flex items-center justify-center">
+              <div class="w-12 h-3 bg-faint rounded-full"></div>
+            </div>
+            <span>5G · 78%</span>
+          </div>
+
+          <!-- 顶部信息条 -->
+          <div class="px-4 py-3 border-b border-line flex items-center justify-between">
+            <div>
+              <div class="head text-[9px] text-rust tracking-[0.3em]">DAY 04</div>
+              <div class="text-snow text-sm font-medium">丹巴甲居藏寨</div>
+            </div>
+            <div class="text-right">
+              <div class="text-[9px] mono text-ash">GPS LOCK</div>
+              <div class="text-topo text-[10px] mono flex items-center gap-1 justify-end">
+                <span class="w-1.5 h-1.5 rounded-full bg-topo blink-soft"></span>
+                强
+              </div>
+            </div>
+          </div>
+
+          <!-- 当前位置卡 -->
+          <div class="m-4 corner-target border border-rust bg-rust/5 p-4 relative">
+            <span class="ct-tl"></span><span class="ct-tr"></span><span class="ct-bl"></span><span class="ct-br"></span>
+            <div class="text-[9px] mono text-rust tracking-widest mb-1">▸ CURRENT POSITION</div>
+            <div class="mono text-snow text-sm num-wide">30.8763°N · 101.8842°E</div>
+            <div class="text-ash text-xs mt-1">海拔 2180m · 气压 925hPa</div>
+            <div class="grid grid-cols-3 gap-2 mt-3 text-[9px] mono">
+              <div>
+                <div class="text-ash">SPEED</div>
+                <div class="text-snow num-wide text-sm">0 km/h</div>
+              </div>
+              <div>
+                <div class="text-ash">DIR</div>
+                <div class="text-snow num-wide text-sm">N 12°</div>
+              </div>
+              <div>
+                <div class="text-ash">SAT</div>
+                <div class="text-snow num-wide text-sm">11</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 大打卡按钮 -->
+          <div class="flex justify-center my-8 relative">
+            <div class="relative w-44 h-44 flex items-center justify-center">
+              <!-- 雷达脉冲圈 -->
+              <div class="absolute inset-0 border-2 border-rust rounded-full radar-pulse"></div>
+              <div class="absolute inset-0 border-2 border-rust rounded-full radar-pulse" style="animation-delay: 0.6s"></div>
+              <div class="absolute inset-0 border-2 border-rust rounded-full radar-pulse" style="animation-delay: 1.2s"></div>
+              <!-- 主按钮 -->
+              <button class="relative w-36 h-36 rounded-full bg-gradient-to-br from-rust to-warn text-ink flex flex-col items-center justify-center shadow-lg" style="box-shadow: 0 0 60px rgba(249,115,22,0.5);">
+                <div class="display text-3xl">CHECK</div>
+                <div class="head text-xs tracking-widest">IN 打卡</div>
+                <div class="text-[8px] mono mt-1 opacity-70">AUTO GPS</div>
+              </button>
+            </div>
+          </div>
+
+          <!-- 已打卡列表 -->
+          <div class="px-4">
+            <div class="head text-[9px] text-rust tracking-[0.3em] mb-2">▸ TODAY'S CHECK-INS · 3</div>
+            <div class="space-y-2">
+              <div class="border border-line bg-card p-2.5 flex items-center gap-3">
+                <div class="w-12 h-12 bg-gradient-to-br from-khaki/40 to-ink flex items-center justify-center text-khaki text-xs display">10:48</div>
+                <div class="flex-1">
+                  <div class="text-snow text-xs">折多山垭口</div>
+                  <div class="text-ash text-[10px] mono">4298m · 团雾</div>
+                </div>
+                <div class="text-rust text-lg">●</div>
+              </div>
+              <div class="border border-line bg-card p-2.5 flex items-center gap-3">
+                <div class="w-12 h-12 bg-gradient-to-br from-topo/40 to-ink flex items-center justify-center text-topo text-xs display">12:20</div>
+                <div class="flex-1">
+                  <div class="text-snow text-xs">新都桥 · 摄影天堂</div>
+                  <div class="text-ash text-[10px] mono">3460m · 晴</div>
+                </div>
+                <div class="text-rust text-lg">●</div>
+              </div>
+              <div class="border border-line bg-card p-2.5 flex items-center gap-3">
+                <div class="w-12 h-12 bg-gradient-to-br from-warn/40 to-ink flex items-center justify-center text-warn text-xs display">14:05</div>
+                <div class="flex-1">
+                  <div class="text-snow text-xs">塔公草原</div>
+                  <div class="text-ash text-[10px] mono">3730m · 多云</div>
+                </div>
+                <div class="text-rust text-lg">●</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 底部导航 -->
+          <div class="absolute bottom-0 left-0 right-0 border-t border-line bg-ink/95 backdrop-blur px-4 py-2 flex justify-around text-[9px] head tracking-widest">
+            <div class="text-rust text-center">
+              <div class="text-base">⊕</div>
+              <div>打卡</div>
+            </div>
+            <div class="text-ash text-center">
+              <div class="text-base">☰</div>
+              <div>行程</div>
+            </div>
+            <div class="text-ash text-center">
+              <div class="text-base">◉</div>
+              <div>地图</div>
+            </div>
+            <div class="text-ash text-center">
+              <div class="text-base">◐</div>
+              <div>游记</div>
+            </div>
+          </div>
+
+          <!-- 扫描线装饰 -->
+          <div class="scan-line" style="top: 0; opacity: 0.3;"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="text-center mt-8 text-[10px] mono text-ash">
+      <span class="text-warn">▲</span> 真实使用场景：手机扫码打开 H5，原相机拍照，自动读 GPS，无需注册登录
+    </div>
+  </div>
+</section>
+
+<!-- =================================================== -->
+<!-- =========== SCREEN 4: 游记 + 地图轮播 =========== -->
+<!-- =================================================== -->
+<section id="screen-journal" class="screen">
+  <div class="max-w-[1400px] mx-auto px-6 py-10">
+
+    <!-- 杂志感标题 -->
+    <div class="text-center mb-10">
+      <div class="text-[10px] mono text-rust tracking-[0.3em]">▸ AI-GENERATED · 川西大环线 8 日志</div>
+      <h1 class="display text-7xl text-snow mt-2 leading-[0.9]">
+        八天<br/>
+        <span class="text-rust">七千公里</span><br/>
+        一片山
+      </h1>
+      <div class="serif text-ash text-base mt-4 italic">
+        — 写于 2026 年 7 月 14 日 · 由 Claude Opus 生成 · 草哥口述修改
+      </div>
+    </div>
+
+    <!-- 封面 -->
+    <div class="corner-target border border-line bg-card aspect-[21/9] relative overflow-hidden mb-12">
+      <span class="ct-tl"></span><span class="ct-tr"></span><span class="ct-bl"></span><span class="ct-br"></span>
+      <!-- 抽象山景 SVG -->
+      <svg viewBox="0 0 1200 500" class="absolute inset-0 w-full h-full">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#1a1a1a"/>
+            <stop offset="60%" stop-color="#3a2a1a"/>
+            <stop offset="100%" stop-color="#f97316" stop-opacity="0.3"/>
+          </linearGradient>
+          <linearGradient id="mtn1" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#0a0a0a"/>
+            <stop offset="100%" stop-color="#1a1a1a"/>
+          </linearGradient>
+        </defs>
+        <rect width="1200" height="500" fill="url(#sky)"/>
+        <!-- 太阳 -->
+        <circle cx="900" cy="180" r="50" fill="#f97316" opacity="0.8"/>
+        <circle cx="900" cy="180" r="80" fill="#f97316" opacity="0.2"/>
+        <!-- 远山 -->
+        <polygon points="0,400 200,200 350,300 500,150 700,280 900,180 1100,300 1200,250 1200,500 0,500" fill="url(#mtn1)" opacity="0.5"/>
+        <!-- 近山 -->
+        <polygon points="0,500 100,350 300,400 450,300 600,380 800,320 1000,400 1200,350 1200,500" fill="#0a0a0a"/>
+        <!-- 雪顶线 -->
+        <g stroke="#c8b48a" stroke-width="0.5" opacity="0.6" fill="none">
+          <path d="M450,300 L500,330"/>
+          <path d="M800,320 L850,350"/>
+        </g>
+      </svg>
+      <div class="absolute bottom-6 left-6 right-6 flex items-end justify-between">
+        <div>
+          <div class="display text-3xl text-snow">WESTERN SICHUAN</div>
+          <div class="display text-5xl text-rust">SUMMER · 2026</div>
+        </div>
+        <div class="mono text-ash text-[10px] text-right">
+          PHOTOS · 142<br/>
+          ROUTE · 1280KM<br/>
+          DAYS · 8
+        </div>
+      </div>
+    </div>
+
+    <!-- 正文（双栏杂志风）-->
+    <div class="grid grid-cols-12 gap-8 mb-12">
+      <div class="col-span-12 md:col-span-3">
+        <div class="text-[10px] mono text-rust tracking-[0.3em]">▸ CH.01 / 出发</div>
+        <div class="display text-3xl text-snow mt-2">DAY<br/>01-02</div>
+        <div class="text-ash text-xs mono mt-2">成都 → 新都桥</div>
+      </div>
+      <div class="col-span-12 md:col-span-9">
+        <p class="serif text-lg text-snow leading-relaxed">
+          六点二十的成灌高速还没堵。雅安下高速吃面的时候，店里老板娘说前面折多山有大雾，让走慢点。
+        </p>
+        <p class="serif text-base text-ash leading-relaxed mt-4">
+          折多山垭口，海拔 4298 米。风大得站不稳，相机差点被吹走。手机显示 70% 电，关了一半 app 才敢继续往前开。
+          同行的哥们儿高反了，吸了半瓶氧才缓过来。垭口没停太久，下到新都桥已经傍晚。
+        </p>
+        <p class="serif text-base text-ash leading-relaxed mt-4">
+          新都桥的藏式民居主人给我们炖了牦牛肉，酥油茶是咸的，第一次喝。窗外是金色光打在青稞田上。
+          那种画面在城市里永远不会出现。
+        </p>
+      </div>
+    </div>
+
+    <!-- 分隔 -->
+    <div class="dash h-px my-12"></div>
+
+    <!-- 照片地图轮播：核心组件 -->
+    <div class="mb-8">
+      <div class="head text-[10px] text-rust tracking-[0.3em] mb-2">▸ PHOTO MAP · 照片地图</div>
+      <h2 class="display text-4xl text-snow">用照片在地图上<br/><span class="text-rust">走一遍</span>那八天</h2>
+      <p class="text-ash text-sm mt-3">按 ← / → 切换照片，地图上的 GPS 点会跟着高亮。</p>
+    </div>
+
+    <div class="corner-target border border-line bg-card overflow-hidden">
+      <span class="ct-tl"></span><span class="ct-tr"></span><span class="ct-bl"></span><span class="ct-br"></span>
+      <div class="grid grid-cols-12">
+        <!-- 左侧：地图（带 4 个照片点位）-->
+        <div class="col-span-12 md:col-span-5 aspect-square md:aspect-auto md:h-[520px] relative bg-gradient-to-br from-surface to-ink">
+          <svg viewBox="0 0 400 400" class="absolute inset-0 w-full h-full">
+            <g fill="none" stroke="#c8b48a" stroke-width="0.5" opacity="0.25">
+              <path d="M0,80 Q100,60 200,80 T400,80"/>
+              <path d="M0,140 Q100,120 200,140 T400,140"/>
+              <path d="M0,200 Q100,180 200,200 T400,200"/>
+              <path d="M0,260 Q100,240 200,260 T400,260"/>
+              <path d="M0,320 Q100,300 200,320 T400,320"/>
+            </g>
+            <path d="M0,180 Q100,160 200,200 T400,180" fill="none" stroke="#84cc16" stroke-width="1" opacity="0.4" stroke-dasharray="2,3"/>
+            <!-- 路线 -->
+            <polyline points="60,300 130,260 180,220 230,180 280,140 320,100 360,80" fill="none" stroke="#f97316" stroke-width="1.5" opacity="0.5"/>
+            <!-- 4 个照片点位 -->
+            <g id="pin-1" class="photo-pin">
+              <circle cx="180" cy="220" r="20" fill="#f97316" opacity="0.2"/>
+              <circle cx="180" cy="220" r="10" fill="#0a0a0a" stroke="#f97316" stroke-width="2"/>
+              <text x="180" y="224" fill="#f97316" font-family="IBM Plex Mono" font-size="10" text-anchor="middle" font-weight="bold">1</text>
+            </g>
+            <g id="pin-2" class="photo-pin">
+              <circle cx="280" cy="140" r="20" fill="#f97316" opacity="0.2"/>
+              <circle cx="280" cy="140" r="10" fill="#0a0a0a" stroke="#f97316" stroke-width="2"/>
+              <text x="280" y="144" fill="#f97316" font-family="IBM Plex Mono" font-size="10" text-anchor="middle" font-weight="bold">2</text>
+            </g>
+            <g id="pin-3" class="photo-pin">
+              <circle cx="320" cy="100" r="20" fill="#f97316" opacity="0.2"/>
+              <circle cx="320" cy="100" r="10" fill="#0a0a0a" stroke="#f97316" stroke-width="2"/>
+              <text x="320" y="104" fill="#f97316" font-family="IBM Plex Mono" font-size="10" text-anchor="middle" font-weight="bold">3</text>
+            </g>
+            <g id="pin-4" class="photo-pin">
+              <circle cx="360" cy="80" r="20" fill="#f97316" opacity="0.2"/>
+              <circle cx="360" cy="80" r="10" fill="#0a0a0a" stroke="#f97316" stroke-width="2"/>
+              <text x="360" y="84" fill="#f97316" font-family="IBM Plex Mono" font-size="10" text-anchor="middle" font-weight="bold">4</text>
+            </g>
+          </svg>
+          <div class="absolute top-3 left-3 bg-ink/80 border border-line px-2 py-1 text-[9px] mono text-ash">
+            30.6595°N · 104.0657°E
+          </div>
+        </div>
+
+        <!-- 右侧：照片大图 + 切换 -->
+        <div class="col-span-12 md:col-span-7 p-6 flex flex-col">
+          <!-- 大照片 -->
+          <div class="aspect-[4/3] bg-gradient-to-br from-khaki/40 via-surface to-ink relative overflow-hidden border border-line">
+            <!-- 模拟照片内容（不同 id 切换不同色调）-->
+            <div id="photo-1" class="photo-frame absolute inset-0 fade-in">
+              <svg viewBox="0 0 600 450" class="absolute inset-0 w-full h-full">
+                <defs>
+                  <linearGradient id="pg1" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#1a1a1a"/>
+                    <stop offset="100%" stop-color="#8a7d5a"/>
+                  </linearGradient>
+                </defs>
+                <rect width="600" height="450" fill="url(#pg1)"/>
+                <polygon points="0,400 150,200 250,280 400,150 550,250 600,220 600,450 0,450" fill="#0a0a0a" opacity="0.6"/>
+                <circle cx="450" cy="120" r="30" fill="#f97316" opacity="0.6"/>
+              </svg>
+              <div class="absolute top-3 left-3 bg-ink/80 border border-rust text-rust text-[10px] mono px-2 py-1">1 / 4 · EXIF GPS</div>
+            </div>
+            <div id="photo-2" class="photo-frame absolute inset-0 hidden">
+              <svg viewBox="0 0 600 450" class="absolute inset-0 w-full h-full">
+                <rect width="600" height="450" fill="#3a2a1a"/>
+                <polygon points="0,300 100,200 200,250 300,150 400,220 500,180 600,250 600,450 0,450" fill="#1a1a1a"/>
+                <rect x="100" y="250" width="60" height="100" fill="#c8b48a" opacity="0.5"/>
+              </svg>
+              <div class="absolute top-3 left-3 bg-ink/80 border border-rust text-rust text-[10px] mono px-2 py-1">2 / 4 · EXIF GPS</div>
+            </div>
+            <div id="photo-3" class="photo-frame absolute inset-0 hidden">
+              <svg viewBox="0 0 600 450" class="absolute inset-0 w-full h-full">
+                <defs>
+                  <linearGradient id="pg3" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#0a0a0a"/>
+                    <stop offset="100%" stop-color="#84cc16" stop-opacity="0.2"/>
+                  </linearGradient>
+                </defs>
+                <rect width="600" height="450" fill="url(#pg3)"/>
+                <polygon points="0,400 200,250 400,300 600,200 600,450 0,450" fill="#0a0a0a"/>
+                <g stroke="#c8b48a" stroke-width="0.3" opacity="0.5" fill="none">
+                  <path d="M0,200 Q150,180 300,200 T600,200"/>
+                  <path d="M0,240 Q150,220 300,240 T600,240"/>
+                </g>
+              </svg>
+              <div class="absolute top-3 left-3 bg-ink/80 border border-rust text-rust text-[10px] mono px-2 py-1">3 / 4 · EXIF GPS</div>
+            </div>
+            <div id="photo-4" class="photo-frame absolute inset-0 hidden">
+              <svg viewBox="0 0 600 450" class="absolute inset-0 w-full h-full">
+                <rect width="600" height="450" fill="#0a0a0a"/>
+                <polygon points="0,450 100,300 200,350 300,250 400,320 500,280 600,350 600,450" fill="#c8b48a" opacity="0.3"/>
+                <polygon points="0,450 150,320 300,360 450,300 600,340 600,450" fill="#0a0a0a"/>
+                <g fill="#f97316">
+                  <circle cx="200" cy="100" r="2"/>
+                  <circle cx="400" cy="80" r="1.5"/>
+                  <circle cx="500" cy="120" r="2"/>
+                  <circle cx="100" cy="150" r="1.5"/>
+                  <circle cx="350" cy="60" r="1"/>
+                </g>
+              </svg>
+              <div class="absolute top-3 left-3 bg-ink/80 border border-rust text-rust text-[10px] mono px-2 py-1">4 / 4 · EXIF GPS</div>
+            </div>
+          </div>
+
+          <!-- 照片元数据 + 切换按钮 -->
+          <div class="mt-4 flex items-center justify-between">
+            <div>
+              <div id="photo-title" class="text-snow font-medium">折多山垭口 · 4298m</div>
+              <div id="photo-meta" class="text-ash text-xs mono mt-0.5">2026.07.10 · 10:48 · 30.6595°N 101.8842°E</div>
+            </div>
+            <div class="flex items-center gap-2">
+              <button id="prev-photo" class="w-10 h-10 border border-line hover:border-rust text-snow">←</button>
+              <span id="photo-counter" class="mono text-sm text-snow num-wide w-12 text-center">1 / 4</span>
+              <button id="next-photo" class="w-10 h-10 border border-line hover:border-rust text-snow">→</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 游记下半场 -->
+    <div class="grid grid-cols-12 gap-8 mt-12">
+      <div class="col-span-12 md:col-span-3">
+        <div class="text-[10px] mono text-rust tracking-[0.3em]">▸ CH.02 / 高原</div>
+        <div class="display text-3xl text-snow mt-2">DAY<br/>03-05</div>
+        <div class="text-ash text-xs mono mt-2">新都桥 → 丹巴</div>
+      </div>
+      <div class="col-span-12 md:col-span-9">
+        <p class="serif text-base text-ash leading-relaxed">
+          塔公草原那天下着小雨，雅拉雪山的轮廓在云里若隐若现。藏民骑着马从我们车边经过，马蹄踩在泥里溅起来的水花打在挡风玻璃上。
+        </p>
+        <p class="serif text-base text-ash leading-relaxed mt-4">
+          丹巴甲居藏寨的清晨有雾。整面山坡上散落着碉楼，黄色的墙体在雾里像没睡醒。
+          拍到一张老阿妈在屋顶晒青稞的照片，光线打在她脸上，那种安静的力量感比任何景点都强。
+        </p>
+      </div>
+    </div>
+
+    <!-- 行动按钮 -->
+    <div class="border-t border-line mt-12 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
+      <div>
+        <div class="head text-rust text-[10px] tracking-[0.3em]">▸ EXPORT</div>
+        <div class="text-snow text-lg mt-1">把这篇游记分享出去</div>
+      </div>
+      <div class="flex gap-3">
+        <button class="px-4 py-2 border border-line text-snow text-sm hover:border-rust">复制链接</button>
+        <button class="px-4 py-2 border border-line text-snow text-sm hover:border-rust">导出 PDF</button>
+        <button class="px-4 py-2 bg-rust text-ink text-sm head tracking-widest hover:bg-warn">生成新行程</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =================================================== -->
+<!-- =========== SCREEN 5: 路线库 =========== -->
+<!-- =================================================== -->
+<section id="screen-routes" class="screen">
+  <div class="max-w-[1400px] mx-auto px-6 py-10">
+
+    <div class="mb-8 flex items-end justify-between border-b border-line pb-3">
+      <div>
+        <div class="text-[10px] mono text-rust tracking-[0.3em]">▸ ROUTE LIBRARY · 经典路线模板</div>
+        <h1 class="display text-5xl text-snow mt-1">从别人的路开始，<br/><span class="text-rust">走出自己的路</span></h1>
+      </div>
+      <div class="flex items-center gap-2 text-[10px] mono text-ash">
+        <button class="px-3 py-1.5 border border-rust text-rust">全部</button>
+        <button class="px-3 py-1.5 border border-line text-ash hover:border-khaki">轻越野</button>
+        <button class="px-3 py-1.5 border border-line text-ash hover:border-khaki">穿越</button>
+        <button class="px-3 py-1.5 border border-line text-ash hover:border-khaki">高原</button>
+        <button class="px-3 py-1.5 border border-line text-ash hover:border-khaki">草原</button>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+
+      <!-- 路线 1 川西 -->
+      <div class="corner-target border border-line bg-card overflow-hidden group cursor-pointer hover:border-rust transition" data-go="plan">
+        <span class="ct-tl"></span><span class="ct-tr"></span><span class="ct-bl"></span><span class="ct-br"></span>
+        <div class="aspect-[16/9] bg-gradient-to-br from-khaki/30 via-surface to-ink relative overflow-hidden">
+          <svg viewBox="0 0 400 225" class="absolute inset-0 w-full h-full">
+            <g fill="none" stroke="#c8b48a" stroke-width="0.4" opacity="0.4">
+              <path d="M0,60 Q100,40 200,60 T400,60"/>
+              <path d="M0,100 Q100,80 200,100 T400,100"/>
+              <path d="M0,140 Q100,120 200,140 T400,140"/>
+              <path d="M0,180 Q100,160 200,180 T400,180"/>
+            </g>
+            <polyline points="40,180 100,140 160,110 220,80 280,60 340,90 380,130" fill="none" stroke="#f97316" stroke-width="2"/>
+          </svg>
+          <div class="absolute top-3 left-3 bg-ink/80 border border-rust text-rust text-[9px] mono px-1.5 py-0.5">● 轻越野</div>
+          <div class="absolute bottom-3 right-3 display text-3xl text-snow/80 num-wide">1280<span class="text-sm">KM</span></div>
+        </div>
+        <div class="p-5">
+          <div class="head text-rust text-[10px] tracking-[0.3em]">SICHUAN WEST LOOP</div>
+          <div class="display text-3xl text-snow mt-1">川西大环线</div>
+          <p class="text-ash text-sm mt-2 leading-relaxed">从成都出发，绕四姑娘山、丹巴、新都桥一圈。8 天 1280 公里，4 段硬派越野段集中在塔公-八美。</p>
+          <div class="flex items-center justify-between mt-4 pt-3 border-t border-line text-[10px] mono text-ash">
+            <span>8 DAYS</span>
+            <span class="text-warn">★ 4.8</span>
+            <span>用 14 次</span>
+            <span class="text-rust">→ 载入</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 路线 2 G219 -->
+      <div class="corner-target border border-line bg-card overflow-hidden group cursor-pointer hover:border-rust transition">
+        <span class="ct-tl"></span><span class="ct-tr"></span><span class="ct-bl"></span><span class="ct-br"></span>
+        <div class="aspect-[16/9] bg-gradient-to-br from-warn/20 via-surface to-ink relative overflow-hidden">
+          <svg viewBox="0 0 400 225" class="absolute inset-0 w-full h-full">
+            <g fill="none" stroke="#c8b48a" stroke-width="0.4" opacity="0.4">
+              <path d="M0,80 Q100,60 200,80 T400,80"/>
+              <path d="M0,140 Q100,120 200,140 T400,140"/>
+            </g>
+            <polyline points="40,200 80,160 130,130 180,100 230,70 290,50 350,40 380,30" fill="none" stroke="#f97316" stroke-width="2"/>
+          </svg>
+          <div class="absolute top-3 left-3 bg-ink/80 border border-alert text-alert text-[9px] mono px-1.5 py-0.5">穿越 · 硬核</div>
+          <div class="absolute bottom-3 right-3 display text-3xl text-snow/80 num-wide">2140<span class="text-sm">KM</span></div>
+        </div>
+        <div class="p-5">
+          <div class="head text-rust text-[10px] tracking-[0.3em]">XINJIANG-TIBET G219</div>
+          <div class="display text-3xl text-snow mt-1">G219 新藏线</div>
+          <p class="text-ash text-sm mt-2 leading-relaxed">叶城到拉孜，14 座 5000+ 米达坂。12 天 2140 公里，平均海拔 4500 米，强烈建议两车以上出行。</p>
+          <div class="flex items-center justify-between mt-4 pt-3 border-t border-line text-[10px] mono text-ash">
+            <span>12 DAYS</span>
+            <span class="text-warn">★ 4.9</span>
+            <span>用 6 次</span>
+            <span class="text-rust">→ 载入</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 路线 3 独库 -->
+      <div class="corner-target border border-line bg-card overflow-hidden group cursor-pointer hover:border-rust transition">
+        <span class="ct-tl"></span><span class="ct-tr"></span><span class="ct-bl"></span><span class="ct-br"></span>
+        <div class="aspect-[16/9] bg-gradient-to-br from-topo/20 via-surface to-ink relative overflow-hidden">
+          <svg viewBox="0 0 400 225" class="absolute inset-0 w-full h-full">
+            <g fill="none" stroke="#c8b48a" stroke-width="0.4" opacity="0.4">
+              <path d="M0,100 Q100,80 200,100 T400,100"/>
+              <path d="M0,150 Q100,130 200,150 T400,150"/>
+            </g>
+            <polyline points="40,180 100,140 160,110 220,90 290,70 360,55" fill="none" stroke="#f97316" stroke-width="2"/>
+          </svg>
+          <div class="absolute top-3 left-3 bg-ink/80 border border-topo text-topo text-[9px] mono px-1.5 py-0.5">风景路</div>
+          <div class="absolute bottom-3 right-3 display text-3xl text-snow/80 num-wide">562<span class="text-sm">KM</span></div>
+        </div>
+        <div class="p-5">
+          <div class="head text-rust text-[10px] tracking-[0.3em]">DUKU HIGHWAY</div>
+          <div class="display text-3xl text-snow mt-1">独库公路</div>
+          <p class="text-ash text-sm mt-2 leading-relaxed">独山子到库车，纵贯天山。每年 6 月中开放、10 月封山。4 天 562 公里，一天四季。</p>
+          <div class="flex items-center justify-between mt-4 pt-3 border-t border-line text-[10px] mono text-ash">
+            <span>4 DAYS</span>
+            <span class="text-warn">★ 4.7</span>
+            <span>用 11 次</span>
+            <span class="text-rust">→ 载入</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 路线 4 坝上 -->
+      <div class="corner-target border border-line bg-card overflow-hidden group cursor-pointer hover:border-rust transition">
+        <span class="ct-tl"></span><span class="ct-tr"></span><span class="ct-bl"></span><span class="ct-br"></span>
+        <div class="aspect-[16/9] bg-gradient-to-br from-khaki/20 via-surface to-ink relative overflow-hidden">
+          <svg viewBox="0 0 400 225" class="absolute inset-0 w-full h-full">
+            <g fill="none" stroke="#c8b48a" stroke-width="0.4" opacity="0.4">
+              <path d="M0,120 Q100,100 200,120 T400,120"/>
+              <path d="M0,170 Q100,150 200,170 T400,170"/>
+            </g>
+            <polyline points="40,150 90,110 140,140 200,100 260,130 320,90 370,120" fill="none" stroke="#f97316" stroke-width="2"/>
+          </svg>
+          <div class="absolute top-3 left-3 bg-ink/80 border border-khaki text-khaki text-[9px] mono px-1.5 py-0.5">休闲</div>
+          <div class="absolute bottom-3 right-3 display text-3xl text-snow/80 num-wide">680<span class="text-sm">KM</span></div>
+        </div>
+        <div class="p-5">
+          <div class="head text-rust text-[10px] tracking-[0.3em]">BASHANG PRAIRIE</div>
+          <div class="display text-3xl text-snow mt-1">坝上草原</div>
+          <p class="text-ash text-sm mt-2 leading-relaxed">北京出发，3 天 680 公里。丰宁坝上、乌兰布统。7-8 月避暑、9 月秋色。适合一家老小。</p>
+          <div class="flex items-center justify-between mt-4 pt-3 border-t border-line text-[10px] mono text-ash">
+            <span>3 DAYS</span>
+            <span class="text-warn">★ 4.3</span>
+            <span>用 9 次</span>
+            <span class="text-rust">→ 载入</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 路线 5 丙察察 -->
+      <div class="corner-target border border-line bg-card overflow-hidden group cursor-pointer hover:border-rust transition">
+        <span class="ct-tl"></span><span class="ct-tr"></span><span class="ct-bl"></span><span class="ct-br"></span>
+        <div class="aspect-[16/9] bg-gradient-to-br from-alert/20 via-surface to-ink relative overflow-hidden">
+          <svg viewBox="0 0 400 225" class="absolute inset-0 w-full h-full">
+            <g fill="none" stroke="#c8b48a" stroke-width="0.4" opacity="0.4">
+              <path d="M0,90 Q100,70 200,90 T400,90"/>
+              <path d="M0,150 Q100,130 200,150 T400,150"/>
+            </g>
+            <polyline points="40,170 100,130 160,100 220,70 280,90 340,60 380,40" fill="none" stroke="#f97316" stroke-width="2"/>
+          </svg>
+          <div class="absolute top-3 left-3 bg-ink/80 border border-alert text-alert text-[9px] mono px-1.5 py-0.5">穿越 · 硬核</div>
+          <div class="absolute bottom-3 right-3 display text-3xl text-snow/80 num-wide">960<span class="text-sm">KM</span></div>
+        </div>
+        <div class="p-5">
+          <div class="head text-rust text-[10px] tracking-[0.3em]">BING-CHA-CHA</div>
+          <div class="display text-3xl text-snow mt-1">丙察察</div>
+          <p class="text-ash text-sm mt-2 leading-relaxed">丙中洛 → 察瓦龙 → 察隅。云南进藏的越野线，悬崖路段多，雨季慎入。需要 1-2 名有经验车手同行。</p>
+          <div class="flex items-center justify-between mt-4 pt-3 border-t border-line text-[10px] mono text-ash">
+            <span>7 DAYS</span>
+            <span class="text-warn">★ 4.8</span>
+            <span>用 3 次</span>
+            <span class="text-rust">→ 载入</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 路线 6 西藏小环线 -->
+      <div class="corner-target border border-line bg-card overflow-hidden group cursor-pointer hover:border-rust transition">
+        <span class="ct-tl"></span><span class="ct-tr"></span><span class="ct-bl"></span><span class="ct-br"></span>
+        <div class="aspect-[16/9] bg-gradient-to-br from-warn/15 via-surface to-ink relative overflow-hidden">
+          <svg viewBox="0 0 400 225" class="absolute inset-0 w-full h-full">
+            <g fill="none" stroke="#c8b48a" stroke-width="0.4" opacity="0.4">
+              <path d="M0,110 Q100,90 200,110 T400,110"/>
+              <path d="M0,160 Q100,140 200,160 T400,160"/>
+            </g>
+            <polyline points="40,180 100,140 160,150 220,110 280,130 340,90 380,110" fill="none" stroke="#f97316" stroke-width="2"/>
+          </svg>
+          <div class="absolute top-3 left-3 bg-ink/80 border border-warn text-warn text-[10px] mono px-1.5 py-0.5">高原</div>
+          <div class="absolute bottom-3 right-3 display text-3xl text-snow/80 num-wide">1480<span class="text-sm">KM</span></div>
+        </div>
+        <div class="p-5">
+          <div class="head text-rust text-[10px] tracking-[0.3em]">TIBET MINI LOOP</div>
+          <div class="display text-3xl text-snow mt-1">西藏小环线</div>
+          <p class="text-ash text-sm mt-2 leading-relaxed">拉萨 → 林芝 → 山南 → 拉萨。9 天 1480 公里，海拔相对友好，适合首次进藏。</p>
+          <div class="flex items-center justify-between mt-4 pt-3 border-t border-line text-[10px] mono text-ash">
+            <span>9 DAYS</span>
+            <span class="text-warn">★ 4.6</span>
+            <span>用 5 次</span>
+            <span class="text-rust">→ 载入</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- 提交新路线 -->
+    <div class="mt-10 corner-target border-2 border-dashed border-line bg-card/50 p-8 text-center">
+      <span class="ct-tl"></span><span class="ct-tr"></span><span class="ct-bl"></span><span class="ct-br"></span>
+      <div class="head text-rust text-[10px] tracking-[0.3em] mb-2">▸ CONTRIBUTE</div>
+      <h3 class="display text-3xl text-snow">走过一条好路线？</h3>
+      <p class="text-ash text-sm mt-2 max-w-md mx-auto">上传 GPX 文件 + 几张照片 + 一段描述，AI 帮你整理成模板，放进路线库。</p>
+      <button class="mt-4 px-6 py-2.5 border border-rust text-rust head tracking-widest hover:bg-rust hover:text-ink transition">+ 提交新路线</button>
+    </div>
+
+  </div>
+</section>
+
+<!-- ============ 底部 ============ -->
+<footer class="border-t border-line mt-16 bg-ink">
+  <div class="max-w-[1400px] mx-auto px-6 py-8 flex flex-col md:flex-row items-center justify-between gap-4">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 border border-rust flex items-center justify-center rotate-45">
+        <div class="w-2.5 h-2.5 bg-rust -rotate-45"></div>
+      </div>
+      <div class="text-[10px] mono text-ash">OFFROAD PLANNER · V0.1 PROTOTYPE · 2026.06.10</div>
+    </div>
+    <div class="text-[10px] mono text-ash">自用 + 小圈子 · 草哥自驾越野规划工具</div>
+  </div>
+</footer>
+
+<script>
+  // 屏幕切换
+  const screens = ['home', 'plan', 'checkin', 'journal', 'routes'];
+  function go(name) {
+    screens.forEach(s => {
+      document.getElementById('screen-' + s).classList.toggle('active', s === name);
+    });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    // 更新 nav 高亮
+    document.querySelectorAll('.nav-btn').forEach(b => {
+      b.classList.remove('text-rust', 'border-b-2', 'border-rust');
+      b.classList.add('text-ash');
+      if (b.dataset.go === name) {
+        b.classList.add('text-rust', 'border-b-2', 'border-rust');
+        b.classList.remove('text-ash');
+      }
+    });
+  }
+  document.querySelectorAll('[data-go]').forEach(el => {
+    el.addEventListener('click', e => {
+      e.preventDefault();
+      go(el.dataset.go);
+    });
+  });
+  go('home');
+
+  // 月份格切换
+  document.querySelectorAll('.month-cell').forEach(c => {
+    c.addEventListener('click', () => {
+      document.querySelectorAll('.month-cell').forEach(x => x.dataset.active = 'false');
+      c.dataset.active = 'true';
+    });
+  });
+  // 车型切换
+  document.querySelectorAll('.vehicle-pill').forEach(c => {
+    c.addEventListener('click', () => {
+      document.querySelectorAll('.vehicle-pill').forEach(x => x.dataset.active = 'false');
+      c.dataset.active = 'true';
+    });
+  });
+
+  // 照片轮播
+  const photos = [
+    { id: 1, title: '折多山垭口 · 4298m', meta: '2026.07.10 · 10:48 · 30.6595°N 101.8842°E' },
+    { id: 2, title: '新都桥 · 青稞田', meta: '2026.07.10 · 17:32 · 30.0421°N 101.5021°E' },
+    { id: 3, title: '塔公草原 · 雅拉雪山', meta: '2026.07.11 · 09:15 · 30.3205°N 101.4921°E' },
+    { id: 4, title: '丹巴甲居藏寨 · 黄昏', meta: '2026.07.12 · 19:08 · 30.8763°N 101.8842°E' },
+  ];
+  let cur = 0;
+  function showPhoto(i) {
+    cur = (i + photos.length) % photos.length;
+    document.querySelectorAll('.photo-frame').forEach(f => f.classList.add('hidden'));
+    document.getElementById('photo-' + (cur + 1)).classList.remove('hidden');
+    document.getElementById('photo-title').textContent = photos[cur].title;
+    document.getElementById('photo-meta').textContent = photos[cur].meta;
+    document.getElementById('photo-counter').textContent = (cur + 1) + ' / ' + photos.length;
+    // 高亮地图点
+    document.querySelectorAll('.photo-pin').forEach((p, idx) => {
+      p.style.opacity = idx === cur ? '1' : '0.3';
+    });
+  }
+  document.getElementById('prev-photo').addEventListener('click', () => showPhoto(cur - 1));
+  document.getElementById('next-photo').addEventListener('click', () => showPhoto(cur + 1));
+  // 键盘 ← →
+  document.addEventListener('keydown', e => {
+    if (document.getElementById('screen-journal').classList.contains('active')) {
+      if (e.key === 'ArrowLeft') showPhoto(cur - 1);
+      if (e.key === 'ArrowRight') showPhoto(cur + 1);
+    }
+  });
+  showPhoto(0);
+</script>
+
+</body>
+</html>
